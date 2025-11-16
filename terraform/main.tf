@@ -347,9 +347,40 @@ resource "aws_iam_policy" "bedrock_access" {
   })
 }
 
+# IAM Policy for DynamoDB Access
+resource "aws_iam_policy" "dynamodb_access" {
+  name        = "${var.project_name}-dynamodb-access-${var.resource_suffix}"
+  description = "Policy for accessing AWS DynamoDB"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:DescribeTable"
+        ]
+        Resource = var.dynamodb_table_name != "" ? [
+          "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}",
+          "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}/index/*"
+        ] : ["*"]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.bedrock_access.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.dynamodb_access.arn
 }
 
 # CloudWatch Log Group
@@ -394,6 +425,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "BEDROCK_MODEL_ID"
           value = var.bedrock_model_id
+        },
+        {
+          name  = "DYNAMODB_TABLE_NAME"
+          value = var.dynamodb_table_name
         }
       ]
 

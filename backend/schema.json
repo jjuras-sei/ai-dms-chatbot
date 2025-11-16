@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "name": "id",
+      "type": "S",
+      "description": "The primary key GUID",
+      "index": true
+    },
+    {
+      "name": "document_name",
+      "type": "S",
+      "description": "The filename of the document",
+      "index": true
+    },
+    {
+      "name": "document_title",
+      "type": "S",
+      "description": "The title of the document",
+      "index": true
+    },
+    {
+      "name": "document_summary",
+      "type": "S",
+      "description": "A short description of the document",
+      "index": false
+    },
+    {
+      "name": "page_count",
+      "type": "N",
+      "description": "The number of pages in the document",
+      "index": true
+    }
+  ]
+}

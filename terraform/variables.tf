@@ -53,3 +53,9 @@ variable "ecs_desired_count" {
   type        = number
   default     = 1
 }
+
+variable "dynamodb_table_name" {
+  description = "DynamoDB table name to query"
+  type        = string
+  default     = ""
+}

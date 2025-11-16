@@ -7,3 +7,8 @@ bedrock_model_id   = "anthropic.claude-3-sonnet-20240229-v1:0"
 ecs_task_cpu       = "512"
 ecs_task_memory    = "1024"
 ecs_desired_count  = 1
+
+# DynamoDB configuration
+# Set this to your DynamoDB table name to restrict IAM permissions and enforce table usage
+# Leave empty ("") to allow access to all tables (not recommended for production)
+dynamodb_table_name = ""
