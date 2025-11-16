@@ -1,6 +1,11 @@
 output "cloudfront_distribution_url" {
-  description = "CloudFront distribution URL for the frontend"
+  description = "CloudFront distribution URL"
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = aws_cloudfront_distribution.frontend.id
 }
 
 output "s3_bucket_name" {

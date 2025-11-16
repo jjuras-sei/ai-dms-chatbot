@@ -120,6 +120,7 @@ else
     # Step 3: Update ECS service to use new image
     echo "Step 3: Updating ECS service..."
     aws ecs update-service \
+        --no-cli-pager \
         --cluster $ECS_CLUSTER \
         --service $ECS_SERVICE \
         --force-new-deployment \
@@ -157,7 +158,22 @@ else
     cd ..
 
     echo ""
-    echo "Frontend deployed successfully!"
+    echo "Frontend uploaded to S3 successfully!"
+    echo ""
+    
+    # Invalidate CloudFront cache
+    echo "Invalidating CloudFront cache..."
+    cd terraform
+    CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
+    cd ..
+    
+    aws cloudfront create-invalidation \
+        --no-cli-pager \
+        --distribution-id $CLOUDFRONT_ID \
+        --paths "/*" \
+        --region $AWS_REGION
+    
+    echo "CloudFront cache invalidation initiated!"
     echo ""
 fi
 
@@ -179,7 +195,4 @@ echo "Access URLs:"
 echo "  - Frontend: $CLOUDFRONT_URL"
 echo "  - API Gateway: $API_GATEWAY_URL"
 echo ""
-if [ "$SKIP_FRONTEND" = false ]; then
-    echo "Note: CloudFront may take 10-15 minutes to propagate changes."
-fi
 echo "=========================================="

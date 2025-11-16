@@ -54,15 +54,15 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         <div
           className={`rounded-2xl p-4 shadow-md transition-all duration-300 hover:shadow-lg ${
             isUser
-              ? 'bg-wu-black text-wu-yellow border-2 border-wu-yellow'
-              : 'bg-white text-wu-gray border border-gray-200'
+              ? 'bg-white text-wu-gray border border-gray-200'
+              : 'bg-white text-wu-black border-2 border-wu-gold'
           }`}
         >
-          <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+          <p className="whitespace-pre-wrap break-words leading-relaxed font-medium">{message.content}</p>
           {message.timestamp && (
             <div className="flex items-center mt-2 pt-2 border-t border-opacity-20 border-current">
               <svg
-                className={`w-3 h-3 mr-1 ${isUser ? 'text-wu-yellow' : 'text-gray-400'}`}
+                className={`w-3 h-3 mr-1 ${isUser ? 'text-wu-black opacity-70' : 'text-gray-400'}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -74,7 +74,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <p className={`text-xs ${isUser ? 'text-wu-yellow opacity-80' : 'text-gray-400'}`}>
+              <p className={`text-xs ${isUser ? 'text-wu-black opacity-70' : 'text-gray-400'}`}>
                 {new Date(message.timestamp).toLocaleTimeString([], { 
                   hour: '2-digit', 
                   minute: '2-digit' 
