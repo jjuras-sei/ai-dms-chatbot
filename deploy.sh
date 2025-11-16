@@ -3,9 +3,51 @@
 # Deployment script for AI Chatbot application
 set -e
 
+# Parse command line arguments
+SKIP_BACKEND=false
+SKIP_FRONTEND=false
+
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --skip-backend     Skip backend deployment (Docker build and ECS update)"
+    echo "  --skip-frontend    Skip frontend deployment (Next.js build and S3 upload)"
+    echo "  -h, --help         Show this help message"
+    echo ""
+    echo "Note: Infrastructure (Terraform) is always deployed regardless of flags."
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --skip-backend)
+            SKIP_BACKEND=true
+            shift
+            ;;
+        --skip-frontend)
+            SKIP_FRONTEND=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
 echo "=========================================="
 echo "AI Chatbot Deployment Script"
 echo "=========================================="
+echo ""
+echo "Deployment Configuration:"
+echo "  - Infrastructure: ALWAYS"
+echo "  - Backend: $([ "$SKIP_BACKEND" = true ] && echo "SKIP" || echo "DEPLOY")"
+echo "  - Frontend: $([ "$SKIP_FRONTEND" = true ] && echo "SKIP" || echo "DEPLOY")"
+echo ""
 
 # Check if AWS CLI is configured
 if ! aws sts get-caller-identity &> /dev/null; then
@@ -21,7 +63,7 @@ echo "AWS Account ID: $AWS_ACCOUNT_ID"
 echo "AWS Region: $AWS_REGION"
 echo ""
 
-# Step 1: Initialize and apply Terraform
+# Step 1: Initialize and apply Terraform (ALWAYS RUNS)
 echo "Step 1: Deploying AWS infrastructure with Terraform..."
 cd terraform
 
@@ -51,64 +93,73 @@ echo "ECR Repository: $ECR_REPO_URL"
 echo "API Gateway URL: $API_GATEWAY_URL"
 echo ""
 
-# Step 2: Build and push backend Docker image
-echo "Step 2: Building and pushing backend Docker image..."
-cd backend
+# Step 2: Build and push backend Docker image (CONDITIONAL)
+if [ "$SKIP_BACKEND" = true ]; then
+    echo "Step 2: Skipping backend deployment (--skip-backend flag set)"
+    echo ""
+else
+    echo "Step 2: Building and pushing backend Docker image..."
+    cd backend
 
-# Login to ECR
-aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
+    # Login to ECR
+    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
 
-# Build Docker image
-docker build -t ai-dms-chatbot-backend:latest .
+    # Build Docker image
+    docker build -t ai-dms-chatbot-backend:latest .
 
-# Tag and push to ECR
-docker tag ai-dms-chatbot-backend:latest $ECR_REPO_URL:latest
-docker push $ECR_REPO_URL:latest
+    # Tag and push to ECR
+    docker tag ai-dms-chatbot-backend:latest $ECR_REPO_URL:latest
+    docker push $ECR_REPO_URL:latest
 
-cd ..
+    cd ..
 
-echo ""
-echo "Backend Docker image pushed successfully!"
-echo ""
+    echo ""
+    echo "Backend Docker image pushed successfully!"
+    echo ""
 
-# Step 3: Update ECS service to use new image
-echo "Step 3: Updating ECS service..."
-aws ecs update-service \
-    --no-cli-pager \
-    --cluster $ECS_CLUSTER \
-    --service $ECS_SERVICE \
-    --force-new-deployment \
-    --region $AWS_REGION
+    # Step 3: Update ECS service to use new image
+    echo "Step 3: Updating ECS service..."
+    aws ecs update-service \
+        --cluster $ECS_CLUSTER \
+        --service $ECS_SERVICE \
+        --force-new-deployment \
+        --region $AWS_REGION
 
-echo ""
-echo "ECS service update initiated. Waiting for deployment..."
-aws ecs wait services-stable \
-    --cluster $ECS_CLUSTER \
-    --services $ECS_SERVICE \
-    --region $AWS_REGION
+    echo ""
+    echo "ECS service update initiated. Waiting for deployment..."
+    aws ecs wait services-stable \
+        --cluster $ECS_CLUSTER \
+        --services $ECS_SERVICE \
+        --region $AWS_REGION
 
-echo "ECS service updated successfully!"
-echo ""
+    echo "ECS service updated successfully!"
+    echo ""
+fi
 
-# Step 4: Build and deploy frontend
-echo "Step 4: Building and deploying frontend..."
-cd frontend
+# Step 4: Build and deploy frontend (CONDITIONAL)
+if [ "$SKIP_FRONTEND" = true ]; then
+    echo "Step 4: Skipping frontend deployment (--skip-frontend flag set)"
+    echo ""
+else
+    echo "Step 4: Building and deploying frontend..."
+    cd frontend
 
-# Create .env.local with API Gateway URL
-echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
+    # Create .env.local with API Gateway URL
+    echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
 
-# Install dependencies and build
-npm install
-npm run build
+    # Install dependencies and build
+    npm install
+    npm run build
 
-# Sync to S3
-aws s3 sync out/ s3://$S3_BUCKET/ --delete
+    # Sync to S3
+    aws s3 sync out/ s3://$S3_BUCKET/ --delete
 
-cd ..
+    cd ..
 
-echo ""
-echo "Frontend deployed successfully!"
-echo ""
+    echo ""
+    echo "Frontend deployed successfully!"
+    echo ""
+fi
 
 # Get CloudFront distribution URL
 cd terraform
@@ -119,8 +170,16 @@ echo "=========================================="
 echo "Deployment Complete!"
 echo "=========================================="
 echo ""
-echo "Frontend URL: $CLOUDFRONT_URL"
-echo "API Gateway URL: $API_GATEWAY_URL"
+echo "Deployed Components:"
+echo "  - Infrastructure: ✓"
+echo "  - Backend: $([ "$SKIP_BACKEND" = true ] && echo "SKIPPED" || echo "✓")"
+echo "  - Frontend: $([ "$SKIP_FRONTEND" = true ] && echo "SKIPPED" || echo "✓")"
 echo ""
-echo "Note: CloudFront may take 10-15 minutes to propagate changes."
+echo "Access URLs:"
+echo "  - Frontend: $CLOUDFRONT_URL"
+echo "  - API Gateway: $API_GATEWAY_URL"
+echo ""
+if [ "$SKIP_FRONTEND" = false ]; then
+    echo "Note: CloudFront may take 10-15 minutes to propagate changes."
+fi
 echo "=========================================="

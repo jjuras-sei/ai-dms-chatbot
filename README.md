@@ -125,10 +125,28 @@ chmod +x deploy.sh
 ```
 
 This script will:
-1. Deploy AWS infrastructure with Terraform
+1. Deploy AWS infrastructure with Terraform (always runs)
 2. Build and push the backend Docker image to ECR
 3. Update ECS service with the new image
 4. Build and deploy the frontend to S3/CloudFront
+
+**Deployment Options:**
+
+Skip specific components while always deploying infrastructure:
+
+```bash
+# Skip backend deployment (infrastructure + frontend only)
+./deploy.sh --skip-backend
+
+# Skip frontend deployment (infrastructure + backend only)
+./deploy.sh --skip-frontend
+
+# Skip both (infrastructure only)
+./deploy.sh --skip-backend --skip-frontend
+
+# Show help
+./deploy.sh --help
+```
 
 #### Option B: Manual Deployment
 
