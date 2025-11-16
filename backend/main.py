@@ -84,10 +84,9 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Process a chat message using DynamoDB query workflow:
-    1. Generate DynamoDB query from user question
-    2. Execute query
-    3. Analyze results and respond
+    Process a chat message using intelligent workflow:
+    - LLM decides whether to query DB or respond directly
+    - Uses conversation history for context
     """
     try:
         # Generate or use existing conversation ID
@@ -107,23 +106,12 @@ async def chat(request: ChatRequest):
         
         model_id = os.getenv('BEDROCK_MODEL_ID', 'anthropic.claude-3-sonnet-20240229-v1:0')
         
-        # Step 1: Generate DynamoDB query
-        query_generation_prompt = build_query_generation_prompt(request.message)
-        query_json = await invoke_bedrock(model_id, query_generation_prompt)
-        
-        # Parse the query from response
-        dynamodb_query = extract_json_from_response(query_json)
-        
-        # Step 2: Execute DynamoDB query
-        query_results = await execute_dynamodb_query(dynamodb_query)
-        
-        # Step 3: Analyze results
-        analysis_prompt = build_analysis_prompt(
-            request.message, 
-            dynamodb_query,
-            query_results
+        # Process with conversation history
+        final_response = await process_with_history(
+            model_id,
+            conversation_id,
+            conversations[conversation_id]
         )
-        final_response = await invoke_bedrock(model_id, analysis_prompt)
         
         # Add assistant response to history
         assistant_msg = Message(
@@ -159,6 +147,51 @@ async def chat(request: ChatRequest):
             history=conversations[conversation_id]
         )
 
+async def process_with_history(model_id: str, conversation_id: str, history: List[Message]) -> str:
+    """
+    Process conversation with full history context
+    """
+    # Build prompt with conversation history
+    prompt = build_conversation_prompt(history)
+    
+    # Get LLM response
+    llm_response = await invoke_bedrock(model_id, prompt)
+    
+    # Parse the JSON response
+    response_obj = extract_json_from_response(llm_response)
+    
+    # Handle based on response_type
+    response_type = response_obj.get('response_type', 'NATURAL_LANGUAGE')
+    content = response_obj.get('content')
+    
+    if response_type == 'QUERY':
+        # Execute the DynamoDB query
+        query_results = await execute_dynamodb_query(content)
+        
+        # Add query results to conversation as system message
+        system_message = Message(
+            role="system",
+            content=f"Query Results:\n{json.dumps(query_results, indent=2)}",
+            timestamp=datetime.utcnow().isoformat()
+        )
+        conversations[conversation_id].append(system_message)
+        
+        # Call LLM again to analyze results
+        analysis_prompt = build_conversation_prompt(conversations[conversation_id])
+        analysis_response = await invoke_bedrock(model_id, analysis_prompt)
+        
+        # Parse analysis response
+        analysis_obj = extract_json_from_response(analysis_response)
+        return analysis_obj.get('content', analysis_response)
+    
+    elif response_type == 'NATURAL_LANGUAGE':
+        # Return the natural language response directly
+        return content
+    
+    else:
+        # Unknown response type, return content as-is
+        return content if isinstance(content, str) else json.dumps(content)
+
 async def invoke_bedrock(model_id: str, messages: List[dict]) -> str:
     """
     Invoke AWS Bedrock with messages
@@ -175,9 +208,9 @@ async def invoke_bedrock(model_id: str, messages: List[dict]) -> str:
     response_body = json.loads(response['body'].read())
     return response_body['content'][0]['text']
 
-def build_query_generation_prompt(user_question: str) -> List[dict]:
+def build_conversation_prompt(history: List[Message]) -> List[dict]:
     """
-    Build prompt for query generation step
+    Build prompt with full conversation history
     """
     schema_text = json.dumps(DATABASE_SCHEMA, indent=2)
     
@@ -186,44 +219,51 @@ def build_query_generation_prompt(user_question: str) -> List[dict]:
     if DYNAMODB_TABLE_NAME:
         table_instruction = f"\n\n# Required Table Name\nYou MUST use the table name: {DYNAMODB_TABLE_NAME}"
     
-    return [
-        {
-            "role": "user",
-            "content": f"""{SYSTEM_PROMPT}
+    # Build the system context
+    system_context = f"""{SYSTEM_PROMPT}
 
 # Database Schema
 {schema_text}{table_instruction}
 
-# User Question
-{user_question}
-
-# Your Task
-Generate a DynamoDB query that will retrieve data to answer the user's question. Respond ONLY with the JSON query object, no explanations or markdown formatting."""
-        }
-    ]
-
-def build_analysis_prompt(user_question: str, query: dict, results: dict) -> List[dict]:
-    """
-    Build prompt for analysis step
-    """
-    return [
-        {
-            "role": "user",
-            "content": f"""{SYSTEM_PROMPT}
-
-# User's Original Question
-{user_question}
-
-# DynamoDB Query That Was Executed
-{json.dumps(query, indent=2)}
-
-# Query Results
-{json.dumps(results, indent=2)}
-
-# Your Task
-Analyze the query results and provide a clear, helpful answer to the user's original question. Present the information in a user-friendly format."""
-        }
-    ]
+# Instructions
+Based on the conversation history below, respond with a JSON object indicating your next action.
+Use conversation history to understand context and decide whether to query the database or provide a direct answer."""
+    
+    # Format messages for Bedrock
+    messages = []
+    
+    # Add system context as first user message
+    messages.append({
+        "role": "user",
+        "content": system_context
+    })
+    
+    # Add a placeholder assistant acknowledgment
+    messages.append({
+        "role": "assistant",
+        "content": "I understand. I will analyze the conversation and respond with appropriate JSON."
+    })
+    
+    # Add conversation history
+    for msg in history:
+        if msg.role == "user":
+            messages.append({
+                "role": "user",
+                "content": msg.content
+            })
+        elif msg.role == "system":
+            # System messages (like query results) go as user messages for context
+            messages.append({
+                "role": "user",
+                "content": f"[SYSTEM INFO] {msg.content}"
+            })
+        elif msg.role == "assistant":
+            messages.append({
+                "role": "assistant",
+                "content": msg.content
+            })
+    
+    return messages
 
 def extract_json_from_response(response: str) -> dict:
     """
@@ -239,9 +279,20 @@ def extract_json_from_response(response: str) -> dict:
         if json_match:
             json_str = json_match.group(0)
         else:
-            json_str = response
+            # If no JSON found, treat entire response as natural language
+            return {
+                "response_type": "NATURAL_LANGUAGE",
+                "content": response
+            }
     
-    return json.loads(json_str)
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        # If JSON parsing fails, return as natural language
+        return {
+            "response_type": "NATURAL_LANGUAGE",
+            "content": response
+        }
 
 async def execute_dynamodb_query(query: dict) -> dict:
     """
