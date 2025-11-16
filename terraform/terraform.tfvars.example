@@ -1,0 +1,9 @@
+# Copy this file to terraform.tfvars and adjust the values as needed
+
+aws_region         = "us-east-1"
+project_name       = "ai-dms-chatbot"
+resource_suffix    = "dev"
+bedrock_model_id   = "anthropic.claude-3-sonnet-20240229-v1:0"
+ecs_task_cpu       = "512"
+ecs_task_memory    = "1024"
+ecs_desired_count  = 1
