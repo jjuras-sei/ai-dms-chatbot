@@ -229,39 +229,66 @@ def build_conversation_prompt(history: List[Message]) -> List[dict]:
 Based on the conversation history below, respond with a JSON object indicating your next action.
 Use conversation history to understand context and decide whether to query the database or provide a direct answer."""
     
-    # Format messages for Bedrock
+    # Format messages for Bedrock - must alternate user/assistant
     messages = []
     
-    # Add system context as first user message
-    messages.append({
-        "role": "user",
-        "content": system_context
-    })
+    # Start with system context + first user message combined
+    first_user_content = system_context
     
-    # Add a placeholder assistant acknowledgment
-    messages.append({
-        "role": "assistant",
-        "content": "I understand. I will analyze the conversation and respond with appropriate JSON."
-    })
-    
-    # Add conversation history
+    # Build conversation history with proper role alternation
     for msg in history:
         if msg.role == "user":
-            messages.append({
-                "role": "user",
-                "content": msg.content
-            })
+            # Append to existing user message or create new one
+            if messages and messages[-1]["role"] == "user":
+                # Merge with previous user message
+                messages[-1]["content"] += f"\n\n{msg.content}"
+            else:
+                # Add as new user message
+                if not messages:
+                    # First message - include system context
+                    messages.append({
+                        "role": "user",
+                        "content": f"{first_user_content}\n\n---\n\n{msg.content}"
+                    })
+                else:
+                    messages.append({
+                        "role": "user",
+                        "content": msg.content
+                    })
         elif msg.role == "system":
-            # System messages (like query results) go as user messages for context
-            messages.append({
-                "role": "user",
-                "content": f"[SYSTEM INFO] {msg.content}"
-            })
+            # System messages get appended to the last message
+            if messages and messages[-1]["role"] == "user":
+                # Append to last user message
+                messages[-1]["content"] += f"\n\n[SYSTEM INFO]\n{msg.content}"
+            elif messages and messages[-1]["role"] == "assistant":
+                # Need to start a new user message
+                messages.append({
+                    "role": "user",
+                    "content": f"[SYSTEM INFO]\n{msg.content}"
+                })
+            else:
+                # No previous message, start with system info
+                messages.append({
+                    "role": "user",
+                    "content": f"{first_user_content}\n\n[SYSTEM INFO]\n{msg.content}"
+                })
         elif msg.role == "assistant":
+            # Add assistant message
             messages.append({
                 "role": "assistant",
                 "content": msg.content
             })
+    
+    # If we ended with an assistant message or no messages, we need to ensure there's a user message
+    if not messages:
+        messages.append({
+            "role": "user",
+            "content": first_user_content
+        })
+    elif messages[-1]["role"] == "assistant":
+        # Bedrock expects conversation to end with user message in some cases
+        # This is fine, the last user message is already there
+        pass
     
     return messages
 
