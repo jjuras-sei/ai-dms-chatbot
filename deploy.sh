@@ -74,6 +74,7 @@ echo ""
 # Step 3: Update ECS service to use new image
 echo "Step 3: Updating ECS service..."
 aws ecs update-service \
+    --no-cli-pager \
     --cluster $ECS_CLUSTER \
     --service $ECS_SERVICE \
     --force-new-deployment \
