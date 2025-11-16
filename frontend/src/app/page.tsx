@@ -76,28 +76,15 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between bg-gray-50">
-      <div className="w-full max-w-4xl h-screen flex flex-col">
-        {/* Header */}
-        <div className="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
-          <h1 className="text-2xl font-bold">AI Chatbot</h1>
-          {conversationId && (
-            <button
-              onClick={handleNewConversation}
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-            >
-              New Question
-            </button>
-          )}
-        </div>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-500">
+    <main className="flex min-h-screen flex-col bg-wu-light-gray">
+      <div className="w-full h-screen flex flex-col">
+        {/* Header with Western Union Styling */}
+        <div className="bg-wu-gradient shadow-lg">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-wu-black rounded-lg flex items-center justify-center">
                 <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
+                  className="w-6 h-6 text-wu-yellow"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -106,70 +93,135 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                   />
                 </svg>
-                <h3 className="mt-2 text-lg font-medium">Start a conversation</h3>
-                <p className="mt-1 text-sm">Ask me anything!</p>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-wu-black">AI Assistant</h1>
+                <p className="text-xs text-wu-gray">Powered by AWS Bedrock</p>
               </div>
             </div>
-          ) : (
-            <>
-              {messages.map((message, index) => (
-                <ChatMessage key={index} message={message} />
-              ))}
-              {isLoading && (
-                <div className="flex items-start space-x-2">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="bg-gray-100 rounded-lg p-3">
-                    <div className="flex space-x-2">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </>
-          )}
+            {conversationId && (
+              <button
+                onClick={handleNewConversation}
+                className="bg-wu-black text-wu-yellow px-5 py-2.5 rounded-lg font-semibold hover:bg-wu-dark-gray transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
+              >
+                New Question
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Input Area */}
-        <div className="border-t bg-white p-4">
-          <form onSubmit={handleSubmit} className="flex space-x-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Send
-            </button>
-          </form>
+        {/* Messages Area with reduced side margins */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full animate-fade-in">
+                <div className="text-center">
+                  <div className="inline-block p-6 bg-white rounded-2xl shadow-lg mb-6 animate-bounce-subtle">
+                    <svg
+                      className="mx-auto h-16 w-16 text-wu-yellow"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-wu-black mb-2">Welcome!</h3>
+                  <p className="text-wu-gray text-lg">Start a conversation and ask me anything</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((message, index) => (
+                  <div key={index} className="animate-slide-up">
+                    <ChatMessage message={message} />
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex items-start space-x-3 animate-slide-up">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-wu-gradient flex items-center justify-center shadow-md">
+                        <svg
+                          className="w-6 h-6 text-wu-black"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl p-4 shadow-md">
+                      <div className="flex space-x-2">
+                        <div className="w-2.5 h-2.5 bg-wu-yellow rounded-full animate-bounce"></div>
+                        <div className="w-2.5 h-2.5 bg-wu-yellow rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2.5 h-2.5 bg-wu-yellow rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Input Area with Western Union Styling */}
+        <div className="border-t border-gray-200 bg-white shadow-lg">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <form onSubmit={handleSubmit} className="flex space-x-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type your message..."
+                  className="w-full border-2 border-gray-200 rounded-xl px-5 py-3.5 focus:outline-none focus:border-wu-yellow focus:ring-2 focus:ring-wu-yellow focus:ring-opacity-50 transition-all duration-300 text-wu-gray placeholder-gray-400 shadow-sm"
+                  disabled={isLoading}
+                />
+                {input && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-2 h-2 bg-wu-yellow rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="bg-wu-gradient text-wu-black px-8 py-3.5 rounded-xl font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-md"
+              >
+                <div className="flex items-center space-x-2">
+                  <span>Send</span>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                </div>
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </main>

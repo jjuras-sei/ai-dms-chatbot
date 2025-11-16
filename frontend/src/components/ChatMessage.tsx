@@ -12,16 +12,16 @@ export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex items-start space-x-2 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+    <div className={`flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
       <div className="flex-shrink-0">
         <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser ? 'bg-green-600' : 'bg-blue-600'
+          className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-transform duration-300 hover:scale-110 ${
+            isUser ? 'bg-wu-black' : 'bg-wu-gradient'
           }`}
         >
           {isUser ? (
             <svg
-              className="w-5 h-5 text-white"
+              className="w-6 h-6 text-wu-yellow"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -35,7 +35,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             </svg>
           ) : (
             <svg
-              className="w-5 h-5 text-white"
+              className="w-6 h-6 text-wu-black"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -50,19 +50,39 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           )}
         </div>
       </div>
-      <div
-        className={`max-w-[70%] rounded-lg p-3 ${
-          isUser
-            ? 'bg-green-600 text-white'
-            : 'bg-gray-100 text-gray-800'
-        }`}
-      >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        {message.timestamp && (
-          <p className={`text-xs mt-1 ${isUser ? 'text-green-100' : 'text-gray-500'}`}>
-            {new Date(message.timestamp).toLocaleTimeString()}
-          </p>
-        )}
+      <div className="flex-1 max-w-3xl">
+        <div
+          className={`rounded-2xl p-4 shadow-md transition-all duration-300 hover:shadow-lg ${
+            isUser
+              ? 'bg-wu-black text-wu-yellow border-2 border-wu-yellow'
+              : 'bg-white text-wu-gray border border-gray-200'
+          }`}
+        >
+          <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+          {message.timestamp && (
+            <div className="flex items-center mt-2 pt-2 border-t border-opacity-20 border-current">
+              <svg
+                className={`w-3 h-3 mr-1 ${isUser ? 'text-wu-yellow' : 'text-gray-400'}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className={`text-xs ${isUser ? 'text-wu-yellow opacity-80' : 'text-gray-400'}`}>
+                {new Date(message.timestamp).toLocaleTimeString([], { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
