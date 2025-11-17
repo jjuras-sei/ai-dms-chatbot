@@ -25,6 +25,8 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const contentMessage = process.env.NEXT_PUBLIC_CONTENT_MESSAGE || 'Powered by AWS Bedrock';
+  const welcomeMessage = process.env.NEXT_PUBLIC_WELCOME_MESSAGE || 'Start a conversation and ask me anything';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,8 +132,8 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-wu-black">AI Assistant</h1>
-                <p className="text-xs text-wu-gray">Powered by AWS Bedrock</p>
+                <h1 className="text-2xl font-bold text-wu-black">AI DMS Chatbot</h1>
+                <p className="text-xs text-wu-gray">{contentMessage}</p>
               </div>
             </div>
             {conversationId && (
@@ -167,7 +169,7 @@ export default function Home() {
                     </svg>
                   </div>
                   <h3 className="text-2xl font-bold text-wu-black mb-2">Welcome!</h3>
-                  <p className="text-wu-gray text-lg">Start a conversation and ask me anything</p>
+                  <p className="text-wu-gray text-lg">{welcomeMessage}</p>
                 </div>
               </div>
             ) : (

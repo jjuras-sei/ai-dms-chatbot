@@ -164,8 +164,22 @@ else
     echo "Step 4: Building and deploying frontend..."
     cd frontend
 
-    # Create .env.local with API Gateway URL
-    echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
+    # Update or create .env.local with API Gateway URL
+    if [ -f ".env.local" ]; then
+        echo "  - Updating existing .env.local file"
+        # Check if NEXT_PUBLIC_API_URL exists in the file
+        if grep -q "^NEXT_PUBLIC_API_URL=" .env.local; then
+            # Update existing API URL line
+            sed -i.bak "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=$API_GATEWAY_URL|" .env.local
+            rm -f .env.local.bak
+        else
+            # Add API URL to existing file
+            echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" >> .env.local
+        fi
+    else
+        echo "  - Creating new .env.local file"
+        echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
+    fi
 
     # Install dependencies and build
     npm install

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AI Chatbot',
+  title: 'AI DMS Chatbot',
   description: 'Conversational AI chatbot powered by AWS Bedrock',
 };
 
