@@ -489,9 +489,12 @@ async def execute_dynamodb_query(query: dict) -> dict:
         logger.error(f"Exception type: {type(e).__name__}")
         logger.error(f"Exception message: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        
+        # Return error with the original query included
         return {
             "Error": str(e),
-            "Message": "Failed to execute DynamoDB query"
+            "Message": "Failed to execute DynamoDB query",
+            "_generated_query": query  # Include the query that failed
         }
 
 @app.get("/conversation/{conversation_id}", response_model=ConversationResponse)
