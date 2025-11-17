@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -8,8 +8,43 @@ import os
 from datetime import datetime
 import uuid
 import re
+import logging
+import traceback
+from time import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Chatbot API")
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    start_time = time()
+    
+    # Log request
+    logger.info(f"Request {request_id}: {request.method} {request.url.path}")
+    logger.info(f"Request {request_id}: Client: {request.client.host}")
+    
+    try:
+        response = await call_next(request)
+        duration = time() - start_time
+        
+        # Log response
+        logger.info(f"Request {request_id}: Status: {response.status_code}, Duration: {duration:.3f}s")
+        
+        return response
+    except Exception as e:
+        duration = time() - start_time
+        logger.error(f"Request {request_id}: Failed after {duration:.3f}s")
+        logger.error(f"Request {request_id}: Exception: {str(e)}")
+        logger.error(f"Request {request_id}: Traceback:\n{traceback.format_exc()}")
+        raise
 
 # CORS configuration
 app.add_middleware(
@@ -109,13 +144,18 @@ async def chat(request: ChatRequest):
     - LLM decides whether to query DB or respond directly
     - Uses conversation history for context
     """
+    conversation_id = None
+    user_message = None
+    
     try:
         # Generate or use existing conversation ID
         conversation_id = request.conversation_id or str(uuid.uuid4())
+        logger.info(f"Chat request - Conversation: {conversation_id}, Message: {request.message[:100]}...")
         
         # Initialize conversation history if new
         if conversation_id not in conversations:
             conversations[conversation_id] = []
+            logger.info(f"New conversation started: {conversation_id}")
         
         # Add user message to history
         user_message = Message(
@@ -126,6 +166,7 @@ async def chat(request: ChatRequest):
         conversations[conversation_id].append(user_message)
         
         model_id = os.getenv('BEDROCK_MODEL_ID', 'anthropic.claude-3-sonnet-20240229-v1:0')
+        logger.info(f"Using Bedrock model: {model_id}")
         
         # Process with conversation history
         final_response, query_data = await process_with_history(
@@ -143,6 +184,8 @@ async def chat(request: ChatRequest):
         )
         conversations[conversation_id].append(assistant_msg)
         
+        logger.info(f"Chat response generated successfully for conversation: {conversation_id}")
+        
         return ChatResponse(
             conversation_id=conversation_id,
             response=final_response,
@@ -150,6 +193,12 @@ async def chat(request: ChatRequest):
         )
     
     except Exception as e:
+        # Log full exception details
+        logger.error(f"Chat endpoint error - Conversation: {conversation_id}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception message: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        
         # Return error to user in a friendly way
         error_message = f"I encountered an error while processing your request: {str(e)}"
         
@@ -159,14 +208,15 @@ async def chat(request: ChatRequest):
             timestamp=datetime.utcnow().isoformat()
         )
         
-        if conversation_id not in conversations:
-            conversations[conversation_id] = [user_message]
-        conversations[conversation_id].append(assistant_msg)
+        if conversation_id and conversation_id not in conversations:
+            conversations[conversation_id] = [user_message] if user_message else []
+        if conversation_id:
+            conversations[conversation_id].append(assistant_msg)
         
         return ChatResponse(
-            conversation_id=conversation_id,
+            conversation_id=conversation_id or str(uuid.uuid4()),
             response=error_message,
-            history=conversations[conversation_id]
+            history=conversations.get(conversation_id, [])
         )
 
 async def process_with_history(model_id: str, conversation_id: str, history: List[Message]) -> tuple[str, Optional[dict]]:
@@ -174,55 +224,74 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
     Process conversation with full history context
     Returns tuple of (response_text, query_data)
     """
-    # Build prompt with conversation history
-    prompt = build_conversation_prompt(history)
-    
-    # Get LLM response
-    llm_response = await invoke_bedrock(model_id, prompt)
-    
-    # Parse the JSON response
-    response_obj = extract_json_from_response(llm_response)
-    
-    # Handle based on response_type
-    response_type = response_obj.get('response_type', 'NATURAL_LANGUAGE')
-    content = response_obj.get('content')
-    
-    if response_type == 'QUERY':
-        # Store the generated query
-        generated_query = content
+    try:
+        logger.info(f"Processing history for conversation: {conversation_id}")
         
-        # Execute the DynamoDB query
-        query_results = await execute_dynamodb_query(content)
+        # Build prompt with conversation history
+        prompt = build_conversation_prompt(history)
         
-        # Add query results to conversation as system message
-        system_message = Message(
-            role="system",
-            content=f"Query Results:\n{json.dumps(query_results, indent=2)}",
-            timestamp=datetime.utcnow().isoformat()
-        )
-        conversations[conversation_id].append(system_message)
+        # Get LLM response
+        llm_response = await invoke_bedrock(model_id, prompt)
+        logger.info(f"Received LLM response for conversation: {conversation_id}")
         
-        # Call LLM again to analyze results
-        analysis_prompt = build_conversation_prompt(conversations[conversation_id])
-        analysis_response = await invoke_bedrock(model_id, analysis_prompt)
+        # Parse the JSON response
+        response_obj = extract_json_from_response(llm_response)
         
-        # Parse analysis response
-        analysis_obj = extract_json_from_response(analysis_response)
-        response_text = analysis_obj.get('content', analysis_response)
+        # Handle based on response_type
+        response_type = response_obj.get('response_type', 'NATURAL_LANGUAGE')
+        content = response_obj.get('content')
+        logger.info(f"Response type: {response_type} for conversation: {conversation_id}")
         
-        # Return response with query data and the original query
-        # Store query in the results dict
-        query_results['_generated_query'] = generated_query
-        return response_text, query_results
-    
-    elif response_type == 'NATURAL_LANGUAGE':
-        # Return the natural language response directly
-        return content, None
-    
-    else:
-        # Unknown response type, return content as-is
-        content_str = content if isinstance(content, str) else json.dumps(content)
-        return content_str, None
+        if response_type == 'QUERY':
+            # Store the generated query
+            generated_query = content
+            logger.info(f"Executing DynamoDB query for conversation: {conversation_id}")
+            logger.debug(f"Query: {json.dumps(generated_query, indent=2)}")
+            
+            # Execute the DynamoDB query
+            query_results = await execute_dynamodb_query(content)
+            logger.info(f"Query executed, got {query_results.get('Count', 0)} results")
+            
+            # Add query results to conversation as system message
+            system_message = Message(
+                role="system",
+                content=f"Query Results:\n{json.dumps(query_results, indent=2)}",
+                timestamp=datetime.utcnow().isoformat()
+            )
+            conversations[conversation_id].append(system_message)
+            
+            # Call LLM again to analyze results
+            logger.info(f"Requesting LLM analysis of query results for conversation: {conversation_id}")
+            analysis_prompt = build_conversation_prompt(conversations[conversation_id])
+            analysis_response = await invoke_bedrock(model_id, analysis_prompt)
+            
+            # Parse analysis response
+            analysis_obj = extract_json_from_response(analysis_response)
+            response_text = analysis_obj.get('content', analysis_response)
+            
+            # Return response with query data and the original query
+            # Store query in the results dict
+            query_results['_generated_query'] = generated_query
+            logger.info(f"Successfully processed query workflow for conversation: {conversation_id}")
+            return response_text, query_results
+        
+        elif response_type == 'NATURAL_LANGUAGE':
+            # Return the natural language response directly
+            logger.info(f"Returning natural language response for conversation: {conversation_id}")
+            return content, None
+        
+        else:
+            # Unknown response type, return content as-is
+            logger.warning(f"Unknown response type '{response_type}' for conversation: {conversation_id}")
+            content_str = content if isinstance(content, str) else json.dumps(content)
+            return content_str, None
+            
+    except Exception as e:
+        logger.error(f"Error in process_with_history for conversation: {conversation_id}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception message: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        raise
 
 async def invoke_bedrock(model_id: str, messages: List[dict]) -> str:
     """
@@ -360,38 +429,41 @@ async def execute_dynamodb_query(query: dict) -> dict:
     operation = query.get('operation', 'Query')
     table_name = query.get('table_name')
     
-    if not table_name:
-        raise ValueError("table_name is required in query")
-    
-    # Build DynamoDB request parameters
-    params = {
-        'TableName': table_name
-    }
-    
-    # Add optional parameters
-    if 'key_condition_expression' in query:
-        params['KeyConditionExpression'] = query['key_condition_expression']
-    
-    if 'expression_attribute_values' in query:
-        params['ExpressionAttributeValues'] = query['expression_attribute_values']
-    
-    if 'filter_expression' in query:
-        params['FilterExpression'] = query['filter_expression']
-    
-    if 'projection_expression' in query:
-        params['ProjectionExpression'] = query['projection_expression']
-    
-    if 'index_name' in query:
-        params['IndexName'] = query['index_name']
-    
-    if 'limit' in query:
-        params['Limit'] = query['limit']
-    
-    if 'expression_attribute_names' in query:
-        params['ExpressionAttributeNames'] = query['expression_attribute_names']
-    
-    # Execute appropriate operation
     try:
+        if not table_name:
+            raise ValueError("table_name is required in query")
+        
+        logger.info(f"Executing DynamoDB {operation} on table: {table_name}")
+        
+        # Build DynamoDB request parameters
+        params = {
+            'TableName': table_name
+        }
+        
+        # Add optional parameters
+        if 'key_condition_expression' in query:
+            params['KeyConditionExpression'] = query['key_condition_expression']
+        
+        if 'expression_attribute_values' in query:
+            params['ExpressionAttributeValues'] = query['expression_attribute_values']
+        
+        if 'filter_expression' in query:
+            params['FilterExpression'] = query['filter_expression']
+        
+        if 'projection_expression' in query:
+            params['ProjectionExpression'] = query['projection_expression']
+        
+        if 'index_name' in query:
+            params['IndexName'] = query['index_name']
+            logger.info(f"Using index: {query['index_name']}")
+        
+        if 'limit' in query:
+            params['Limit'] = query['limit']
+        
+        if 'expression_attribute_names' in query:
+            params['ExpressionAttributeNames'] = query['expression_attribute_names']
+        
+        # Execute appropriate operation
         if operation == 'Query':
             response = dynamodb.query(**params)
         elif operation == 'Scan':
@@ -408,9 +480,15 @@ async def execute_dynamodb_query(query: dict) -> dict:
         else:
             raise ValueError(f"Unsupported operation: {operation}")
         
+        logger.info(f"DynamoDB {operation} completed successfully. Count: {response.get('Count', 0)}, ScannedCount: {response.get('ScannedCount', 0)}")
         return response
     
     except Exception as e:
+        logger.error(f"DynamoDB query execution failed")
+        logger.error(f"Operation: {operation}, Table: {table_name}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception message: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
         return {
             "Error": str(e),
             "Message": "Failed to execute DynamoDB query"
@@ -466,7 +544,10 @@ async def get_presigned_url(request: dict):
     s3_url = request.get('url')
     
     if not s3_url:
+        logger.warning("Presigned URL request missing URL parameter")
         raise HTTPException(status_code=400, detail="URL is required")
+    
+    logger.info(f"Presigned URL request for: {s3_url}")
     
     # Parse S3 URL to extract bucket and key
     # Format: s3://bucket/key or https://bucket.s3.region.amazonaws.com/key
@@ -492,7 +573,10 @@ async def get_presigned_url(request: dict):
                 bucket = path_parts[0]
                 key = path_parts[1] if len(path_parts) > 1 else ''
         else:
+            logger.error(f"Invalid S3 URL format: {s3_url}")
             raise HTTPException(status_code=400, detail="Invalid S3 URL format")
+        
+        logger.info(f"Generating presigned URL for bucket: {bucket}, key: {key}")
         
         # Generate presigned URL (expires in 1 hour)
         presigned_url = s3.generate_presigned_url(
@@ -501,9 +585,17 @@ async def get_presigned_url(request: dict):
             ExpiresIn=3600
         )
         
+        logger.info(f"Successfully generated presigned URL for: s3://{bucket}/{key}")
         return {"presigned_url": presigned_url}
     
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to generate presigned URL for: {s3_url}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception message: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        
         error_message = str(e)
         if 'AccessDenied' in error_message or 'Forbidden' in error_message:
             raise HTTPException(
