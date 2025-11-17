@@ -86,6 +86,7 @@ You will receive the database schema in the following JSON format:
       "name": "column_name",
       "type": "S|N|BOOL|L|M",
       "description": "Description of what this column contains",
+      "include": "true|false|null",
       "index": "Primary Key|IndexName|null"
     }
   ]
@@ -98,6 +99,10 @@ You will receive the database schema in the following JSON format:
   - `name`: The attribute name in DynamoDB
   - `type`: DynamoDB data type (S=String, N=Number, BOOL=Boolean, L=List, M=Map)
   - `description`: Detailed explanation of the column's purpose and content
+  - `include`:
+    - `true` - always include this column in queries
+    - `false` - never include this column in queries
+    - `null` or not defined - include column if it would be useful in answering original question (default behavior)
   - `index`: 
     - `"Primary Key"` if this is the partition key or sort key
     - Index name (e.g., "ColumnNameIndex") if a GSI exists on this attribute
