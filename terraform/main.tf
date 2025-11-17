@@ -50,7 +50,6 @@ resource "aws_s3_bucket_policy" "frontend" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadGetObject"
         Effect    = "Allow"
         Principal = "*"
         Action    = "s3:GetObject"
@@ -373,6 +372,29 @@ resource "aws_iam_policy" "dynamodb_access" {
   })
 }
 
+# IAM Policy for S3 Access (only created if bucket names are specified)
+resource "aws_iam_policy" "s3_access" {
+  count = length(var.s3_bucket_names) > 0 ? 1 : 0
+
+  name        = "${var.project_name}-s3-access-${var.resource_suffix}"
+  description = "Policy for accessing AWS S3"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = [
+          for bucket in var.s3_bucket_names : "arn:aws:s3:::${bucket}/*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.bedrock_access.arn
@@ -381,6 +403,13 @@ resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
 resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.dynamodb_access.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_s3" {
+  count = length(var.s3_bucket_names) > 0 ? 1 : 0
+
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.s3_access[0].arn
 }
 
 # CloudWatch Log Group

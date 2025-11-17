@@ -12,3 +12,10 @@ ecs_desired_count  = 1
 # Set this to your DynamoDB table name to restrict IAM permissions and enforce table usage
 # Leave empty ("") to allow access to all tables (not recommended for production)
 dynamodb_table_name = ""
+
+# S3 configuration
+# List of S3 bucket names that the application can access for presigned URLs
+# IMPORTANT: If left empty ([]), NO S3 access will be granted (S3 URLs will fail)
+# You must specify bucket names to enable S3 file access via presigned URLs
+# Example: s3_bucket_names = ["my-data-bucket", "my-files-bucket"]
+s3_bucket_names = []

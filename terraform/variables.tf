@@ -55,7 +55,13 @@ variable "ecs_desired_count" {
 }
 
 variable "dynamodb_table_name" {
-  description = "DynamoDB table name to query"
+  description = "Name of the DynamoDB table to query"
   type        = string
   default     = ""
+}
+
+variable "s3_bucket_names" {
+  description = "List of S3 bucket names that the application can access"
+  type        = list(string)
+  default     = []
 }

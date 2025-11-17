@@ -31,6 +31,11 @@ dynamodb = boto3.client(
     region_name=os.getenv('AWS_REGION', 'us-east-1')
 )
 
+s3 = boto3.client(
+    service_name='s3',
+    region_name=os.getenv('AWS_REGION', 'us-east-1')
+)
+
 # Load system prompt and schema
 def load_system_prompt():
     """Load the system prompt from file"""
@@ -438,6 +443,64 @@ async def reload_config():
         "message": "Configuration reloaded",
         "schema_loaded": bool(DATABASE_SCHEMA)
     }
+
+@app.post("/presigned-url")
+async def get_presigned_url(request: dict):
+    """
+    Generate a presigned URL for an S3 object
+    """
+    s3_url = request.get('url')
+    
+    if not s3_url:
+        raise HTTPException(status_code=400, detail="URL is required")
+    
+    # Parse S3 URL to extract bucket and key
+    # Format: s3://bucket/key or https://bucket.s3.region.amazonaws.com/key
+    try:
+        if s3_url.startswith('s3://'):
+            # s3://bucket/key format
+            parts = s3_url[5:].split('/', 1)
+            bucket = parts[0]
+            key = parts[1] if len(parts) > 1 else ''
+        elif 's3.amazonaws.com' in s3_url or 's3-' in s3_url:
+            # https://bucket.s3.region.amazonaws.com/key or
+            # https://s3.region.amazonaws.com/bucket/key
+            from urllib.parse import urlparse
+            parsed = urlparse(s3_url)
+            
+            if parsed.netloc.endswith('.s3.amazonaws.com') or '.s3-' in parsed.netloc or '.s3.' in parsed.netloc:
+                # bucket.s3.region.amazonaws.com format
+                bucket = parsed.netloc.split('.s3')[0]
+                key = parsed.path.lstrip('/')
+            else:
+                # s3.region.amazonaws.com/bucket/key format
+                path_parts = parsed.path.lstrip('/').split('/', 1)
+                bucket = path_parts[0]
+                key = path_parts[1] if len(path_parts) > 1 else ''
+        else:
+            raise HTTPException(status_code=400, detail="Invalid S3 URL format")
+        
+        # Generate presigned URL (expires in 1 hour)
+        presigned_url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket, 'Key': key},
+            ExpiresIn=3600
+        )
+        
+        return {"presigned_url": presigned_url}
+    
+    except Exception as e:
+        error_message = str(e)
+        if 'AccessDenied' in error_message or 'Forbidden' in error_message:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: The application does not have permission to access this S3 object"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate presigned URL: {error_message}"
+            )
 
 if __name__ == "__main__":
     import uvicorn
