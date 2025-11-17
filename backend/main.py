@@ -59,6 +59,7 @@ class Message(BaseModel):
     role: str
     content: str
     timestamp: Optional[str] = None
+    data: Optional[dict] = None  # For query results
 
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
@@ -107,17 +108,18 @@ async def chat(request: ChatRequest):
         model_id = os.getenv('BEDROCK_MODEL_ID', 'anthropic.claude-3-sonnet-20240229-v1:0')
         
         # Process with conversation history
-        final_response = await process_with_history(
+        final_response, query_data = await process_with_history(
             model_id,
             conversation_id,
             conversations[conversation_id]
         )
         
-        # Add assistant response to history
+        # Add assistant response to history with optional data
         assistant_msg = Message(
             role="assistant",
             content=final_response,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
+            data=query_data
         )
         conversations[conversation_id].append(assistant_msg)
         
@@ -147,9 +149,10 @@ async def chat(request: ChatRequest):
             history=conversations[conversation_id]
         )
 
-async def process_with_history(model_id: str, conversation_id: str, history: List[Message]) -> str:
+async def process_with_history(model_id: str, conversation_id: str, history: List[Message]) -> tuple[str, Optional[dict]]:
     """
     Process conversation with full history context
+    Returns tuple of (response_text, query_data)
     """
     # Build prompt with conversation history
     prompt = build_conversation_prompt(history)
@@ -182,15 +185,19 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
         
         # Parse analysis response
         analysis_obj = extract_json_from_response(analysis_response)
-        return analysis_obj.get('content', analysis_response)
+        response_text = analysis_obj.get('content', analysis_response)
+        
+        # Return response with query data
+        return response_text, query_results
     
     elif response_type == 'NATURAL_LANGUAGE':
         # Return the natural language response directly
-        return content
+        return content, None
     
     else:
         # Unknown response type, return content as-is
-        return content if isinstance(content, str) else json.dumps(content)
+        content_str = content if isinstance(content, str) else json.dumps(content)
+        return content_str, None
 
 async def invoke_bedrock(model_id: str, messages: List[dict]) -> str:
     """

@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import ChatMessage from '../components/ChatMessage';
+import DataModal from '../components/DataModal';
 import axios from 'axios';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
+  data?: any;
 }
 
 export default function Home() {
@@ -15,6 +17,8 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [modalData, setModalData] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -49,10 +53,15 @@ export default function Home() {
 
       setConversationId(response.data.conversation_id);
       
+      // Get the latest assistant message from history (includes data)
+      const history = response.data.history;
+      const latestAssistant = history[history.length - 1];
+      
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.data.response,
-        timestamp: new Date().toISOString()
+        content: latestAssistant.content,
+        timestamp: latestAssistant.timestamp,
+        data: latestAssistant.data
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -73,6 +82,16 @@ export default function Home() {
     setMessages([]);
     setConversationId(null);
     setInput('');
+  };
+
+  const handleViewData = (data: any) => {
+    setModalData(data);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setModalData(null);
   };
 
   return (
@@ -142,7 +161,7 @@ export default function Home() {
               <div className="space-y-4">
                 {messages.map((message, index) => (
                   <div key={index} className="animate-slide-up">
-                    <ChatMessage message={message} />
+                    <ChatMessage message={message} onViewData={handleViewData} />
                   </div>
                 ))}
                 {isLoading && (
@@ -224,6 +243,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Data Modal */}
+      <DataModal 
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        data={modalData}
+      />
     </main>
   );
 }

@@ -2,14 +2,17 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
+  data?: any;
 }
 
 interface ChatMessageProps {
   message: Message;
+  onViewData?: (data: any) => void;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({ message, onViewData }: ChatMessageProps) {
   const isUser = message.role === 'user';
+  const hasData = message.data && message.data.Items && message.data.Items.length > 0;
 
   return (
     <div className={`flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -59,6 +62,29 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           }`}
         >
           <p className="whitespace-pre-wrap break-words leading-relaxed font-medium">{message.content}</p>
+          
+          {hasData && onViewData && (
+            <button
+              onClick={() => onViewData(message.data)}
+              className="mt-3 px-4 py-2 bg-wu-gradient text-wu-black font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center space-x-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              <span>View Data ({message.data.Items.length} items)</span>
+            </button>
+          )}
+          
           {message.timestamp && (
             <div className="flex items-center mt-2 pt-2 border-t border-opacity-20 border-current">
               <svg
