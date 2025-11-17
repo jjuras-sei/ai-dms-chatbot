@@ -77,12 +77,37 @@ You will receive the full conversation history. Use it to understand context:
 
 # Database Schema
 
-You will receive the database schema which describes:
-- Table name(s)
-- Primary key structure (Partition Key and Sort Key)
-- Attribute definitions and data types
-- Global Secondary Indexes (GSIs)
-- Sample data structure
+You will receive the database schema in the following JSON format:
+
+```json
+{
+  "columns": [
+    {
+      "name": "column_name",
+      "type": "S|N|BOOL|L|M",
+      "description": "Description of what this column contains",
+      "index": "Primary Key|IndexName|null"
+    }
+  ]
+}
+```
+
+**Schema Structure:**
+- `columns`: Array of column definitions for the DynamoDB table
+- Each column object contains:
+  - `name`: The attribute name in DynamoDB
+  - `type`: DynamoDB data type (S=String, N=Number, BOOL=Boolean, L=List, M=Map)
+  - `description`: Detailed explanation of the column's purpose and content
+  - `index`: 
+    - `"Primary Key"` if this is the partition key or sort key
+    - Index name (e.g., "ColumnNameIndex") if a GSI exists on this attribute
+    - `null` if no index
+
+**Using the Schema:**
+1. Check column names and types before building queries
+2. Use indexed columns for efficient queries (Primary Key or GSI)
+3. Reference descriptions to understand data meaning
+4. Match DynamoDB types in expression_attribute_values
 
 # DynamoDB Query Guidelines
 
