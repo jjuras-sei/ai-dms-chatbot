@@ -3,32 +3,32 @@
     {
       "name": "id",
       "type": "S",
-      "description": "The primary key GUID",
-      "index": true
+      "description": "Unique identifier for the document record (UUID)",
+      "index": "Primary Key"
     },
     {
       "name": "document_name",
       "type": "S",
-      "description": "The filename of the document",
-      "index": true
+      "description": "Name/path of the document in S3",
+      "index": "DocumentNameIndex"
+    },
+    {
+      "name": "document_url",
+      "type": "S",
+      "description": "Full S3 URL of the document (s3://bucket/key format)",
+      "index": null
     },
     {
       "name": "document_title",
       "type": "S",
-      "description": "The title of the document",
-      "index": true
+      "description": "This is the title of the document. It should be contained in the document text itself, and is NOT the filename of the document.",
+      "index": "DocumentTitleIndex"
     },
     {
       "name": "document_summary",
       "type": "S",
-      "description": "A short description of the document",
-      "index": false
-    },
-    {
-      "name": "page_count",
-      "type": "N",
-      "description": "The number of pages in the document",
-      "index": true
+      "description": "This is a brief summary of the document. It should describe the meaning and purpose of the document. It should be no more than 500 characters in length.",
+      "index": null
     }
   ]
 }
