@@ -112,6 +112,12 @@ if [ "$SKIP_BACKEND" = true ]; then
     echo ""
 else
     echo "Step 2: Building and pushing backend Docker image..."
+    
+    # Copy configuration files into backend directory for Docker build
+    echo "  - Copying configuration files to backend/"
+    cp system_prompt.txt backend/
+    cp schema.json backend/
+    
     cd backend
 
     # Login to ECR

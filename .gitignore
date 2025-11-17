@@ -89,3 +89,5 @@ Thumbs.db
 # Configuration files (use .example versions as templates)
 system_prompt.txt
 schema.json
+backend/system_prompt.txt
+backend/schema.json
