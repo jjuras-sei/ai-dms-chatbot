@@ -250,6 +250,21 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
             
             # Execute the DynamoDB query
             query_results = await execute_dynamodb_query(content)
+            
+            # Check if query execution failed
+            if 'Error' in query_results:
+                error_msg = query_results.get('Error', 'Unknown error')
+                logger.error(f"Query validation/execution failed for conversation: {conversation_id}: {error_msg}")
+                
+                # Return user-friendly error message with the faulty query
+                error_response = (
+                    "I encountered an error while trying to execute the database query I generated. "
+                    "Please try rephrasing your question, and I'll attempt to answer it again."
+                )
+                
+                # query_results already contains _generated_query from execute_dynamodb_query
+                return error_response, query_results
+            
             logger.info(f"Query executed, got {query_results.get('Count', 0)} results")
             
             # Add query results to conversation as system message
