@@ -96,14 +96,26 @@ Before deploying, ensure you have access to AWS Bedrock models:
 2. Request access to the desired models (e.g., Claude 3 Sonnet)
 3. Wait for approval (usually instant for most models)
 
-### 4. Configure Terraform Variables
+### 4. Configure Application Settings
+
+**Copy example configuration files:**
 
 ```bash
+# System prompt and database schema
+cp system_prompt.txt.example system_prompt.txt
+cp schema.json.example schema.json
+
+# Terraform variables
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
+cd ..
 ```
 
-Edit `terraform.tfvars` to customize:
+**Edit configuration files:**
+
+1. **system_prompt.txt** - Customize the AI assistant's behavior and instructions
+2. **schema.json** - Define your DynamoDB table schema for the AI to understand
+3. **terraform/terraform.tfvars** - Infrastructure configuration:
 
 ```hcl
 aws_region         = "us-east-1"

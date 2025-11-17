@@ -40,17 +40,31 @@ s3 = boto3.client(
 def load_system_prompt():
     """Load the system prompt from file"""
     try:
-        with open('system_prompt.txt', 'r') as f:
-            return f.read()
-    except FileNotFoundError:
+        # Try current directory first, then parent directory
+        if os.path.exists('system_prompt.txt'):
+            with open('system_prompt.txt', 'r') as f:
+                return f.read()
+        elif os.path.exists('../system_prompt.txt'):
+            with open('../system_prompt.txt', 'r') as f:
+                return f.read()
+        else:
+            return "You are a helpful AI assistant that helps users query and analyze data."
+    except Exception:
         return "You are a helpful AI assistant that helps users query and analyze data."
 
 def load_schema():
     """Load the database schema from file"""
     try:
-        with open('schema.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
+        # Try current directory first, then parent directory
+        if os.path.exists('schema.json'):
+            with open('schema.json', 'r') as f:
+                return json.load(f)
+        elif os.path.exists('../schema.json'):
+            with open('../schema.json', 'r') as f:
+                return json.load(f)
+        else:
+            return {}
+    except Exception:
         return {}
 
 SYSTEM_PROMPT = load_system_prompt()

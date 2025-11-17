@@ -6,8 +6,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
-COPY system_prompt.txt .
-COPY schema.json .
+COPY ../system_prompt.txt .
+COPY ../schema.json .
 
 EXPOSE 8000
 

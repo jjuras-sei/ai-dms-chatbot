@@ -63,6 +63,19 @@ echo "AWS Account ID: $AWS_ACCOUNT_ID"
 echo "AWS Region: $AWS_REGION"
 echo ""
 
+# Copy example configuration files if real versions don't exist
+echo "Checking configuration files..."
+if [ ! -f "system_prompt.txt" ]; then
+    echo "  - Copying system_prompt.txt.example to system_prompt.txt"
+    cp system_prompt.txt.example system_prompt.txt
+fi
+
+if [ ! -f "schema.json" ]; then
+    echo "  - Copying schema.json.example to schema.json"
+    cp schema.json.example schema.json
+fi
+echo ""
+
 # Step 1: Initialize and apply Terraform (ALWAYS RUNS)
 echo "Step 1: Deploying AWS infrastructure with Terraform..."
 cd terraform
