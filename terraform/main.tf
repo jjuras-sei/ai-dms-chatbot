@@ -458,6 +458,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "DYNAMODB_TABLE_NAME"
           value = var.dynamodb_table_name
+        },
+        {
+          name  = "ENABLE_ERROR_VIEWING"
+          value = tostring(var.enable_error_viewing)
         }
       ]
 

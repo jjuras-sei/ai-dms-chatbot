@@ -65,3 +65,9 @@ variable "s3_bucket_names" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_error_viewing" {
+  description = "Enable detailed error viewing in the frontend (useful for debugging)"
+  type        = bool
+  default     = false
+}

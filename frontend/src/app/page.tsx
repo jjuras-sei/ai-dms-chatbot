@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import ChatMessage from '../components/ChatMessage';
 import DataModal from '../components/DataModal';
 import QueryModal from '../components/QueryModal';
+import ErrorModal from '../components/ErrorModal';
 import axios from 'axios';
 
 interface Message {
@@ -22,6 +23,8 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [queryData, setQueryData] = useState<any>(null);
   const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
+  const [errorData, setErrorData] = useState<any>(null);
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -109,6 +112,16 @@ export default function Home() {
     setQueryData(null);
   };
 
+  const handleViewError = (error: any) => {
+    setErrorData(error);
+    setIsErrorModalOpen(true);
+  };
+
+  const handleCloseErrorModal = () => {
+    setIsErrorModalOpen(false);
+    setErrorData(null);
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-wu-light-gray">
       <div className="w-full h-screen flex flex-col">
@@ -180,6 +193,7 @@ export default function Home() {
                       message={message} 
                       onViewData={handleViewData}
                       onViewQuery={handleViewQuery}
+                      onViewError={handleViewError}
                     />
                   </div>
                 ))}
@@ -275,6 +289,13 @@ export default function Home() {
         isOpen={isQueryModalOpen}
         onClose={handleCloseQueryModal}
         query={queryData}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal 
+        isOpen={isErrorModalOpen}
+        onClose={handleCloseErrorModal}
+        error={errorData}
       />
     </main>
   );

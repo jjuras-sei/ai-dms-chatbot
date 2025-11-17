@@ -105,6 +105,7 @@ def load_schema():
 SYSTEM_PROMPT = load_system_prompt()
 DATABASE_SCHEMA = load_schema()
 DYNAMODB_TABLE_NAME = os.getenv('DYNAMODB_TABLE_NAME', '')
+ENABLE_ERROR_VIEWING = os.getenv('ENABLE_ERROR_VIEWING', 'false').lower() == 'true'
 
 # In-memory conversation storage (use DynamoDB for production)
 conversations = {}
@@ -517,12 +518,25 @@ async def execute_dynamodb_query(query: dict) -> dict:
         logger.error(f"Exception message: {str(e)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
         
-        # Return error with the original query included
-        return {
+        # Build error response
+        error_response = {
             "Error": str(e),
             "Message": "Failed to execute DynamoDB query",
             "_generated_query": query  # Include the query that failed
         }
+        
+        # Include full error details if error viewing is enabled
+        if ENABLE_ERROR_VIEWING:
+            error_response["query_error"] = {
+                "exception_type": type(e).__name__,
+                "exception_message": str(e),
+                "traceback": traceback.format_exc(),
+                "operation": operation,
+                "table_name": table_name
+            }
+            logger.info("Including full error details in response (ENABLE_ERROR_VIEWING is true)")
+        
+        return error_response
 
 @app.get("/conversation/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(conversation_id: str):
