@@ -3,16 +3,19 @@ interface Message {
   content: string;
   timestamp?: string;
   data?: any;
+  query?: any;
 }
 
 interface ChatMessageProps {
   message: Message;
   onViewData?: (data: any) => void;
+  onViewQuery?: (query: any) => void;
 }
 
-export default function ChatMessage({ message, onViewData }: ChatMessageProps) {
+export default function ChatMessage({ message, onViewData, onViewQuery }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const hasData = message.data && message.data.Items && message.data.Items.length > 0;
+  const hasQuery = message.data && message.data._generated_query;
 
   return (
     <div className={`flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -63,26 +66,51 @@ export default function ChatMessage({ message, onViewData }: ChatMessageProps) {
         >
           <p className="whitespace-pre-wrap break-words leading-relaxed font-medium">{message.content}</p>
           
-          {hasData && onViewData && (
-            <button
-              onClick={() => onViewData(message.data)}
-              className="mt-3 px-4 py-2 bg-wu-gradient text-wu-black font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center space-x-2"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              <span>View Data ({message.data.Items.length} items)</span>
-            </button>
+          {(hasData || hasQuery) && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {hasQuery && onViewQuery && (
+                <button
+                  onClick={() => onViewQuery(message.data._generated_query)}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 flex items-center space-x-1.5 border border-gray-300"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                    />
+                  </svg>
+                  <span>View Query</span>
+                </button>
+              )}
+              {hasData && onViewData && (
+                <button
+                  onClick={() => onViewData(message.data)}
+                  className="px-3 py-1.5 bg-wu-gradient text-wu-black text-sm font-semibold rounded-md shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 flex items-center space-x-1.5"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span>View Data ({message.data.Items.length})</span>
+                </button>
+              )}
+            </div>
           )}
           
           {message.timestamp && (

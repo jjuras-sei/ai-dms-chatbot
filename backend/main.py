@@ -60,6 +60,7 @@ class Message(BaseModel):
     content: str
     timestamp: Optional[str] = None
     data: Optional[dict] = None  # For query results
+    query: Optional[dict] = None  # For DynamoDB query
 
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
@@ -168,6 +169,9 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
     content = response_obj.get('content')
     
     if response_type == 'QUERY':
+        # Store the generated query
+        generated_query = content
+        
         # Execute the DynamoDB query
         query_results = await execute_dynamodb_query(content)
         
@@ -187,7 +191,9 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
         analysis_obj = extract_json_from_response(analysis_response)
         response_text = analysis_obj.get('content', analysis_response)
         
-        # Return response with query data
+        # Return response with query data and the original query
+        # Store query in the results dict
+        query_results['_generated_query'] = generated_query
         return response_text, query_results
     
     elif response_type == 'NATURAL_LANGUAGE':

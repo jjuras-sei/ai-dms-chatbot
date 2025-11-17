@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ChatMessage from '../components/ChatMessage';
 import DataModal from '../components/DataModal';
+import QueryModal from '../components/QueryModal';
 import axios from 'axios';
 
 interface Message {
@@ -19,6 +20,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [queryData, setQueryData] = useState<any>(null);
+  const [isQueryModalOpen, setIsQueryModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -94,6 +97,16 @@ export default function Home() {
     setModalData(null);
   };
 
+  const handleViewQuery = (query: any) => {
+    setQueryData(query);
+    setIsQueryModalOpen(true);
+  };
+
+  const handleCloseQueryModal = () => {
+    setIsQueryModalOpen(false);
+    setQueryData(null);
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-wu-light-gray">
       <div className="w-full h-screen flex flex-col">
@@ -161,7 +174,11 @@ export default function Home() {
               <div className="space-y-4">
                 {messages.map((message, index) => (
                   <div key={index} className="animate-slide-up">
-                    <ChatMessage message={message} onViewData={handleViewData} />
+                    <ChatMessage 
+                      message={message} 
+                      onViewData={handleViewData}
+                      onViewQuery={handleViewQuery}
+                    />
                   </div>
                 ))}
                 {isLoading && (
@@ -249,6 +266,13 @@ export default function Home() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         data={modalData}
+      />
+
+      {/* Query Modal */}
+      <QueryModal 
+        isOpen={isQueryModalOpen}
+        onClose={handleCloseQueryModal}
+        query={queryData}
       />
     </main>
   );
