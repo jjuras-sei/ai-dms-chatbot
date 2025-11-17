@@ -265,9 +265,13 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
             analysis_prompt = build_conversation_prompt(conversations[conversation_id])
             analysis_response = await invoke_bedrock(model_id, analysis_prompt)
             
-            # Parse analysis response
+            # Parse analysis response - always use content field only
             analysis_obj = extract_json_from_response(analysis_response)
-            response_text = analysis_obj.get('content', analysis_response)
+            response_text = analysis_obj.get('content', '')
+            
+            # Log if content is empty
+            if not response_text:
+                logger.warning(f"Analysis response has empty content field for conversation: {conversation_id}")
             
             # Return response with query data and the original query
             # Store query in the results dict
@@ -396,6 +400,7 @@ Use conversation history to understand context and decide whether to query the d
 def extract_json_from_response(response: str) -> dict:
     """
     Extract JSON from LLM response, handling potential markdown formatting
+    Always returns a dict with 'content' field
     """
     # Try to find JSON in markdown code blocks
     json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
@@ -408,18 +413,25 @@ def extract_json_from_response(response: str) -> dict:
             json_str = json_match.group(0)
         else:
             # If no JSON found, treat entire response as natural language
+            logger.warning("No JSON found in LLM response, treating as natural language")
             return {
                 "response_type": "NATURAL_LANGUAGE",
-                "content": response
+                "content": response.strip()
             }
     
     try:
-        return json.loads(json_str)
-    except json.JSONDecodeError:
+        parsed = json.loads(json_str)
+        # Ensure the parsed object has a content field
+        if 'content' not in parsed:
+            logger.warning("Parsed JSON missing 'content' field, using empty string")
+            parsed['content'] = ""
+        return parsed
+    except json.JSONDecodeError as e:
         # If JSON parsing fails, return as natural language
+        logger.error(f"JSON parsing failed: {str(e)}")
         return {
             "response_type": "NATURAL_LANGUAGE",
-            "content": response
+            "content": response.strip()
         }
 
 async def execute_dynamodb_query(query: dict) -> dict:
