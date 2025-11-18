@@ -130,19 +130,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-wu-black rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-wu-yellow"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
+                <span className="text-wu-yellow font-black text-lg tracking-tighter">WU</span>
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-wu-black">AI DMS Chatbot</h1>
