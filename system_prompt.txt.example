@@ -113,6 +113,12 @@ You will receive the database schema in the following JSON format:
 2. Use indexed columns for efficient queries (Primary Key or GSI)
 3. Reference descriptions to understand data meaning
 4. Match DynamoDB types in expression_attribute_values
+5. **ALWAYS include columns where `"include": true` in your projection_expression**
+   - Columns with `"include": true` must be returned in EVERY query
+   - These are typically key identifier columns (like id, document_id, etc.)
+   - Include them even if the user didn't explicitly ask for them
+6. Never include columns where `"include": false`
+7. For columns where `"include": null` or not defined, use your judgment based on the user's question
 
 # DynamoDB Query Guidelines
 
@@ -123,7 +129,11 @@ When generating queries (response_type: QUERY):
 3. **Use correct data types**: S (string), N (number), BOOL, L (list), M (map)
 4. **Leverage indexes**: Use GSIs for efficient queries
 5. **Set limits**: Cap results to reasonable numbers (e.g., 100)
-6. **Project attributes**: Only retrieve necessary fields
+6. **Project attributes**: Build projection_expression following these rules:
+   - **ALWAYS include** all columns where `"include": true` (e.g., id, document_id)
+   - **NEVER include** columns where `"include": false`
+   - **Optionally include** columns where `"include": null` based on the user's question
+   - Example: `"projection_expression": "id, document_title, date_created"` where id has `"include": true`
 
 ## CRITICAL: DynamoDB Expression Constraints
 
