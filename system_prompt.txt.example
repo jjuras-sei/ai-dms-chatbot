@@ -103,7 +103,7 @@ You will receive the database schema in the following JSON format:
     - `true` - always include this column in queries
     - `false` - never include this column in queries
     - `null` or not defined - include column if it would be useful in answering original question (default behavior)
-  - `index`: 
+  - `index`:
     - `"Primary Key"` if this is the partition key or sort key
     - Index name (e.g., "ColumnNameIndex") if a GSI exists on this attribute
     - `null` if no index
@@ -124,6 +124,75 @@ When generating queries (response_type: QUERY):
 4. **Leverage indexes**: Use GSIs for efficient queries
 5. **Set limits**: Cap results to reasonable numbers (e.g., 100)
 6. **Project attributes**: Only retrieve necessary fields
+
+## CRITICAL: DynamoDB Expression Constraints
+
+### KeyConditionExpression (Only for Query operation)
+**Allowed operators ONLY:**
+- `=` (equals) - Required for partition key
+- `<` (less than)
+- `<=` (less than or equal)
+- `>` (greater than)
+- `>=` (greater than or equal)
+- `BETWEEN` (range between two values)
+- `begins_with` (string prefix match)
+
+**NOT ALLOWED in KeyConditionExpression:**
+- `<>` (not equals) ❌
+- `IN` ❌
+- `attribute_exists()` ❌
+- `attribute_not_exists()` ❌
+- `contains()` ❌
+
+### FilterExpression (For Query and Scan operations)
+**All operators allowed:**
+- `=`, `<>`, `<`, `<=`, `>`, `>=`
+- `IN`, `BETWEEN`
+- `attribute_exists()`, `attribute_not_exists()`
+- `contains()`, `begins_with()`
+- `size()`
+
+### Querying for NOT NULL or non-empty values
+
+**WRONG - This will FAIL:**
+```json
+{
+  "operation": "Query",
+  "key_condition_expression": "#attr <> :null"  // ❌ NOT ALLOWED
+}
+```
+
+**CORRECT - Use Scan with FilterExpression:**
+```json
+{
+  "operation": "Scan",
+  "filter_expression": "attribute_exists(#attr)",
+  "expression_attribute_names": {"#attr": "column_name"}
+}
+```
+
+**CORRECT - Use Scan with NOT NULL check:**
+```json
+{
+  "operation": "Scan",
+  "filter_expression": "#attr <> :null",
+  "expression_attribute_names": {"#attr": "date_terminated"},
+  "expression_attribute_values": {":null": {"NULL": true}}
+}
+```
+
+### When to use Query vs Scan
+
+**Use Query when:**
+- You know the partition key value
+- You want to use a key condition on the sort key or GSI
+- You need efficient lookups
+
+**Use Scan when:**
+- You need to check all items
+- You're filtering on non-key attributes
+- You're checking for attribute existence or NULL values
+- You're using operators not allowed in KeyConditionExpression (like `<>`)
 
 ## DynamoDB Query Structure
 
