@@ -138,14 +138,31 @@ When generating queries (response_type: QUERY):
 ## CRITICAL: DynamoDB Expression Constraints
 
 ### KeyConditionExpression (Only for Query operation)
-**Allowed operators ONLY:**
-- `=` (equals) - Required for partition key
-- `<` (less than)
-- `<=` (less than or equal)
-- `>` (greater than)
-- `>=` (greater than or equal)
-- `BETWEEN` (range between two values)
-- `begins_with` (string prefix match)
+
+**CRITICAL RULES:**
+1. **Partition Key**: MUST use `=` operator ONLY
+   - Example: `partition_key = :pk_value`
+   - You CANNOT use `>`, `>=`, `<`, `<=`, `BETWEEN` on partition key ❌
+
+2. **Sort Key** (optional): Can use comparison operators
+   - `=` (equals)
+   - `<` (less than)
+   - `<=` (less than or equal)
+   - `>` (greater than)
+   - `>=` (greater than or equal)
+   - `BETWEEN` (range between two values)
+   - `begins_with` (string prefix match)
+
+**Valid KeyConditionExpression Examples:**
+- Partition key only: `pk = :pk_value`
+- Partition + sort key equals: `pk = :pk_value AND sk = :sk_value`
+- Partition + sort key range: `pk = :pk_value AND sk >= :sk_value`
+- Partition + sort key between: `pk = :pk_value AND sk BETWEEN :start AND :end`
+
+**INVALID KeyConditionExpression Examples:**
+- Using comparison on partition key: `pk >= :pk_value` ❌
+- Using not equals: `pk = :pk AND sk <> :sk` ❌
+- Missing partition key: `sk >= :sk_value` ❌
 
 **NOT ALLOWED in KeyConditionExpression:**
 - `<>` (not equals) ❌
@@ -191,16 +208,30 @@ When generating queries (response_type: QUERY):
 }
 ```
 
+### Understanding GSI (Global Secondary Index) Structure
+
+**GSI with Partition Key ONLY:**
+- If an index only has a partition key (no sort key), you can ONLY use `=` operator
+- Example: `date_terminated = :specific_date`
+- You CANNOT use `>=`, `>`, `<`, `<=` on a partition-key-only index ❌
+- If you need range queries, you must use Scan with FilterExpression
+
+**GSI with Partition Key + Sort Key:**
+- Partition key: Must use `=`
+- Sort key: Can use comparison operators (`>=`, `>`, `<`, `<=`, `BETWEEN`, `begins_with`)
+- Example: `partition_key = :pk AND sort_key >= :date`
+
 ### When to use Query vs Scan
 
 **Use Query when:**
-- You know the partition key value
-- You want to use a key condition on the sort key or GSI
+- You know the exact partition key value (using `=`)
+- The index has a sort key AND you want to use comparison operators on it
 - You need efficient lookups
 
 **Use Scan when:**
-- You need to check all items
+- You need to check all items without knowing partition key
 - You're filtering on non-key attributes
+- You need range queries on a partition-key-only index (like `date >= today`)
 - You're checking for attribute existence or NULL values
 - You're using operators not allowed in KeyConditionExpression (like `<>`)
 
