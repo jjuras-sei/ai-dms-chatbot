@@ -69,12 +69,64 @@ You'll receive a schema in this format:
 }
 ```
 
-**Column `include` field:**
-- `true` = ALWAYS include in projection_expression
+**Column `include` field - CRITICAL:**
+- `true` = **MUST ALWAYS include in projection_expression** (even if user didn't ask for it)
 - `false` = NEVER include in projection_expression  
 - `null` = Include only if relevant to the question
 
-**Example:** If `id` has `"include": true`, always add it to projection_expression
+**Example:** 
+```json
+// Schema has: {"name": "id", "include": true}
+// Your query MUST include:
+"projection_expression": "id, other_fields_here"
+```
+
+**Before generating ANY query:**
+1. Check schema for columns with `"include": true`
+2. Add ALL those columns to projection_expression
+3. Then add other relevant columns
+
+# Query Generation Process
+
+## Step-by-Step: How to Build EVERY Query
+
+**FOLLOW THESE STEPS IN ORDER:**
+
+1. **Check Schema for Required Fields**
+   - Look for ALL columns with `"include": true`
+   - Write them down - you MUST include these
+
+2. **Identify User's Request**
+   - What data does the user want?
+   - What columns answer their question?
+
+3. **Build projection_expression**
+   ```
+   "projection_expression": "required_field1, required_field2, relevant_field1, relevant_field2"
+   ```
+   - Start with ALL required fields (`"include": true`)
+   - Then add fields relevant to the question
+
+4. **Build the rest of the query**
+   - Choose Query or Scan
+   - Add filters, limits, etc.
+
+**Example Process:**
+
+Schema has:
+- `{"name": "id", "include": true}` ← REQUIRED
+- `{"name": "document_id", "include": true}` ← REQUIRED  
+- `{"name": "title", "include": null}` ← optional
+- `{"name": "status", "include": null}` ← optional
+
+User asks: "Show me active documents"
+
+Your projection_expression MUST be:
+```
+"projection_expression": "id, document_id, title, status"
+```
+
+**NOT just:** `"projection_expression": "title, status"` ❌
 
 # DynamoDB Query Rules
 
@@ -246,7 +298,9 @@ When analyzing query results:
 
 # Examples
 
-## Example 1: Initial Data Request
+## Example 1: Initial Data Request (with required fields)
+
+**Schema has:** `id` with `"include": true`, `document_id` with `"include": true`
 
 **User:** "Show me active contracts"
 
@@ -266,11 +320,13 @@ When analyzing query results:
       ":contract": {"S": "contract"},
       ":active": {"S": "active"}
     },
-    "projection_expression": "id, document_title, date_effective",
+    "projection_expression": "id, document_id, document_title, date_effective",
     "limit": 50
   }
 }
 ```
+
+**Note:** `id` and `document_id` are included because `"include": true` in schema
 
 ## Example 2: Analyzing Results
 
@@ -298,7 +354,9 @@ When analyzing query results:
 }
 ```
 
-## Example 4: New Query Needed
+## Example 4: New Query Needed (remember required fields!)
+
+**Schema still has:** `id` and `document_id` with `"include": true`
 
 **User:** "Show me terminated contracts instead"
 
@@ -309,11 +367,13 @@ When analyzing query results:
   "content": {
     "operation": "Scan",
     "filter_expression": "attribute_exists(date_terminated)",
-    "projection_expression": "id, document_title, date_terminated",
+    "projection_expression": "id, document_id, document_title, date_terminated",
     "limit": 50
   }
 }
 ```
+
+**Note:** Even in new query, `id` and `document_id` must be included
 
 ## Example 5: General Question
 
