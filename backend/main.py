@@ -244,13 +244,24 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
         logger.info(f"Response type: {response_type} for conversation: {conversation_id}")
         
         if response_type == 'QUERY':
-            # Store the generated query
-            generated_query = content
+            # Ensure content is a dict (the query)
+            if isinstance(content, str):
+                try:
+                    generated_query = json.loads(content)
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse query from string content: {content}")
+                    return "I encountered an error parsing the database query. Please try rephrasing your question.", None
+            elif isinstance(content, dict):
+                generated_query = content
+            else:
+                logger.error(f"Unexpected content type for QUERY response: {type(content)}")
+                return "I encountered an error with the database query format. Please try rephrasing your question.", None
+            
             logger.info(f"Executing DynamoDB query for conversation: {conversation_id}")
             logger.debug(f"Query: {json.dumps(generated_query, indent=2)}")
             
             # Execute the DynamoDB query
-            query_results = await execute_dynamodb_query(content)
+            query_results = await execute_dynamodb_query(generated_query)
             
             # Check if query execution failed
             if 'Error' in query_results:
