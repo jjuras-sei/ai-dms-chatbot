@@ -43,10 +43,6 @@ data "aws_subnet" "existing_private" {
 # S3 bucket for frontend static hosting
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.resource_suffix}"
-
-  tags = {
-    Name = "${var.project_name}-frontend-${var.resource_suffix}"
-  }
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
@@ -142,9 +138,6 @@ resource "aws_cloudfront_distribution" "frontend" {
     response_page_path = "/index.html"
   }
 
-  tags = {
-    Name = "${var.project_name}-frontend-cdn-${var.resource_suffix}"
-  }
 }
 
 # VPC and Networking (only created if existing_vpc_id is not provided)
@@ -154,9 +147,6 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = {
-    Name = "${var.project_name}-vpc-${var.resource_suffix}"
-  }
 }
 
 resource "aws_subnet" "public" {
@@ -166,9 +156,6 @@ resource "aws_subnet" "public" {
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "${var.project_name}-public-subnet-${count.index + 1}-${var.resource_suffix}"
-  }
 }
 
 resource "aws_subnet" "private" {
@@ -177,27 +164,18 @@ resource "aws_subnet" "private" {
   cidr_block        = "10.0.${count.index + 10}.0/24"
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  tags = {
-    Name = "${var.project_name}-private-subnet-${count.index + 1}-${var.resource_suffix}"
-  }
 }
 
 resource "aws_internet_gateway" "main" {
   count  = local.use_existing_vpc ? 0 : 1
   vpc_id = aws_vpc.main[0].id
 
-  tags = {
-    Name = "${var.project_name}-igw-${var.resource_suffix}"
-  }
 }
 
 resource "aws_eip" "nat" {
   count  = local.use_existing_vpc ? 0 : 2
   domain = "vpc"
 
-  tags = {
-    Name = "${var.project_name}-nat-eip-${count.index + 1}-${var.resource_suffix}"
-  }
 
   depends_on = [aws_internet_gateway.main]
 }
@@ -207,9 +185,6 @@ resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
 
-  tags = {
-    Name = "${var.project_name}-nat-${count.index + 1}-${var.resource_suffix}"
-  }
 
   depends_on = [aws_internet_gateway.main]
 }
@@ -223,9 +198,6 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.main[0].id
   }
 
-  tags = {
-    Name = "${var.project_name}-public-rt-${var.resource_suffix}"
-  }
 }
 
 resource "aws_route_table" "private" {
@@ -237,9 +209,6 @@ resource "aws_route_table" "private" {
     nat_gateway_id = aws_nat_gateway.main[count.index].id
   }
 
-  tags = {
-    Name = "${var.project_name}-private-rt-${count.index + 1}-${var.resource_suffix}"
-  }
 }
 
 resource "aws_route_table_association" "public" {
@@ -264,9 +233,6 @@ resource "aws_ecr_repository" "backend" {
     scan_on_push = true
   }
 
-  tags = {
-    Name = "${var.project_name}-backend-${var.resource_suffix}"
-  }
 }
 
 # ECS Cluster
@@ -278,9 +244,6 @@ resource "aws_ecs_cluster" "main" {
     value = "enabled"
   }
 
-  tags = {
-    Name = "${var.project_name}-cluster-${var.resource_suffix}"
-  }
 }
 
 # Security Group for ECS Tasks
@@ -304,9 +267,6 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.project_name}-ecs-tasks-sg-${var.resource_suffix}"
-  }
 }
 
 # IAM Role for ECS Task Execution
@@ -326,9 +286,6 @@ resource "aws_iam_role" "ecs_task_execution_role" {
     ]
   })
 
-  tags = {
-    Name = "${var.project_name}-ecs-exec-role-${var.resource_suffix}"
-  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
@@ -353,9 +310,6 @@ resource "aws_iam_role" "ecs_task_role" {
     ]
   })
 
-  tags = {
-    Name = "${var.project_name}-ecs-task-role-${var.resource_suffix}"
-  }
 }
 
 # IAM Policy for Bedrock Access
@@ -449,9 +403,6 @@ resource "aws_cloudwatch_log_group" "backend" {
   name              = "/ecs/${var.project_name}-backend-${var.resource_suffix}"
   retention_in_days = 7
 
-  tags = {
-    Name = "${var.project_name}-backend-logs-${var.resource_suffix}"
-  }
 }
 
 # ECS Task Definition
@@ -508,9 +459,6 @@ resource "aws_ecs_task_definition" "backend" {
     }
   ])
 
-  tags = {
-    Name = "${var.project_name}-backend-task-${var.resource_suffix}"
-  }
 }
 
 # ECS Service
@@ -535,9 +483,6 @@ resource "aws_ecs_service" "backend" {
 
   depends_on = [aws_lb_listener.backend]
 
-  tags = {
-    Name = "${var.project_name}-backend-svc-${var.resource_suffix}"
-  }
 }
 
 # Application Load Balancer
@@ -548,9 +493,6 @@ resource "aws_lb" "backend" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = var.enable_private_deployment ? local.private_subnet_ids : local.public_subnet_ids
 
-  tags = {
-    Name = "${var.project_name}-backend-alb-${var.resource_suffix}"
-  }
 }
 
 resource "aws_security_group" "alb" {
@@ -581,9 +523,6 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.project_name}-alb-sg-${var.resource_suffix}"
-  }
 }
 
 resource "aws_lb_target_group" "backend" {
@@ -605,9 +544,6 @@ resource "aws_lb_target_group" "backend" {
     unhealthy_threshold = 2
   }
 
-  tags = {
-    Name = "${var.project_name}-backend-tg-${var.resource_suffix}"
-  }
 }
 
 resource "aws_lb_listener" "backend" {
@@ -628,9 +564,6 @@ resource "aws_apigatewayv2_vpc_link" "backend" {
   security_group_ids = [aws_security_group.vpc_link[0].id]
   subnet_ids         = local.private_subnet_ids
 
-  tags = {
-    Name = "${var.project_name}-vpc-link-${var.resource_suffix}"
-  }
 }
 
 # Security Group for VPC Link (only created when VPC Link is being created)
@@ -647,9 +580,6 @@ resource "aws_security_group" "vpc_link" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.project_name}-vpc-link-sg-${var.resource_suffix}"
-  }
 }
 
 # Security Group for API Gateway VPC Endpoint (only created when private API is enabled)
@@ -674,9 +604,6 @@ resource "aws_security_group" "api_gateway_vpc_endpoint" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.project_name}-apigw-vpce-sg-${var.resource_suffix}"
-  }
 }
 
 # VPC Endpoint for API Gateway (only created when private API is enabled)
@@ -691,9 +618,6 @@ resource "aws_vpc_endpoint" "api_gateway" {
 
   private_dns_enabled = true
 
-  tags = {
-    Name = "${var.project_name}-apigw-vpce-${var.resource_suffix}"
-  }
 }
 
 # API Gateway (HTTP API)
@@ -712,9 +636,6 @@ resource "aws_apigatewayv2_api" "backend" {
   # This forces all traffic through the VPC endpoint
   disable_execute_api_endpoint = var.enable_private_api
 
-  tags = {
-    Name = "${var.project_name}-api-${var.resource_suffix}"
-  }
 }
 
 resource "aws_apigatewayv2_integration" "backend" {
@@ -739,9 +660,6 @@ resource "aws_apigatewayv2_stage" "backend" {
   name        = "$default"
   auto_deploy = true
 
-  tags = {
-    Name = "${var.project_name}-api-stage-${var.resource_suffix}"
-  }
 }
 
 data "aws_availability_zones" "available" {
