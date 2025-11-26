@@ -88,12 +88,32 @@ else
 fi
 
 echo ""
-echo "Step 2: Getting ECR repository information..."
+echo "Step 2: Emptying ECR repository..."
 ECR_REPO_NAME=$(terraform output -raw ecr_repository_url 2>/dev/null | cut -d'/' -f2 || echo "")
 
 if [ -n "$ECR_REPO_NAME" ]; then
     echo "Found ECR repository: $ECR_REPO_NAME"
-    echo "Note: ECR repository will be deleted by Terraform (force_delete enabled in configuration would help)."
+    
+    # Check if repository exists
+    if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region $AWS_REGION &> /dev/null; then
+        echo "Deleting all images in ECR repository..."
+        
+        # Get all image digests and delete them
+        IMAGE_DIGESTS=$(aws ecr list-images --repository-name "$ECR_REPO_NAME" --region $AWS_REGION \
+            --query 'imageIds[*].imageDigest' --output text 2>/dev/null || echo "")
+        
+        if [ -n "$IMAGE_DIGESTS" ]; then
+            for digest in $IMAGE_DIGESTS; do
+                aws ecr batch-delete-image --repository-name "$ECR_REPO_NAME" --region $AWS_REGION \
+                    --image-ids imageDigest=$digest &> /dev/null || true
+            done
+            echo "ECR repository emptied successfully."
+        else
+            echo "ECR repository is already empty."
+        fi
+    else
+        echo "ECR repository does not exist or is already deleted."
+    fi
 else
     echo "No ECR repository found in Terraform outputs."
 fi

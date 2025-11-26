@@ -129,6 +129,58 @@ dynamodb_table_name = "my-dms-table"
 s3_bucket_names     = ["my-data-bucket"]
 ```
 
+## Private Deployment Mode
+
+The infrastructure supports two deployment modes controlled by the `enable_private_deployment` variable:
+
+### Public Deployment (Default)
+- **ALB**: Internet-facing, deployed in public subnets
+- **API Gateway**: Connects to ALB via public internet
+- **Access**: Backend accessible from the internet via API Gateway
+- **Use Case**: Standard deployment for public applications
+
+### Private Deployment
+- **ALB**: Internal, deployed in private subnets
+- **API Gateway**: Connects to ALB via VPC Link
+- **Access**: Backend only accessible within VPC or via API Gateway
+- **Use Case**: Enhanced security for corporate/internal applications
+
+### Enabling Private Deployment
+
+Add the following to your `terraform.tfvars`:
+
+```hcl
+enable_private_deployment = true
+```
+
+### Architecture Differences
+
+**Public Mode:**
+```
+Internet → CloudFront → S3 (Frontend)
+Internet → API Gateway → ALB (Public Subnets) → ECS (Private Subnets)
+```
+
+**Private Mode:**
+```
+Internet → CloudFront → S3 (Frontend)
+Internet → API Gateway → VPC Link → ALB (Private Subnets) → ECS (Private Subnets)
+```
+
+### Security Considerations
+
+**Private Deployment Benefits:**
+- ALB has no public IP address
+- Backend infrastructure fully isolated in private subnets
+- API Gateway acts as the only public entry point
+- Reduced attack surface
+- Suitable for compliance requirements
+
+**Requirements:**
+- Private subnets must have NAT Gateway access for ECS tasks to reach AWS services (Bedrock, DynamoDB, S3)
+- VPC Link provides secure connection between API Gateway and internal ALB
+- Security group rules automatically restrict ALB access to VPC CIDR only
+
 ## Troubleshooting
 
 ### Error: Subnets must be in different availability zones
@@ -141,7 +193,25 @@ Verify that private subnets have routes to NAT Gateways or NAT Instances for out
 
 ### Error: ALB health checks failing
 
-Ensure public subnets have routes to an Internet Gateway and that security groups allow traffic on port 80.
+**Public Mode:** Ensure public subnets have routes to an Internet Gateway and that security groups allow traffic on port 80.
+
+**Private Mode:** Ensure private subnets have routes to NAT Gateways and that security groups allow traffic from VPC CIDR.
+
+### Error: VPC Link connection timeout
+
+- Verify private subnets have correct routing to NAT Gateways
+- Check that VPC Link security group allows egress traffic
+- Ensure ALB is healthy and accessible from VPC Link subnets
+- Verify DNS resolution is enabled in the VPC
+
+### Error: API Gateway 502/503 errors
+
+**Public Mode:** Check ALB is publicly accessible and responding.
+
+**Private Mode:** 
+- Verify VPC Link status is "AVAILABLE"
+- Check ALB listener ARN is correctly configured in integration
+- Ensure security groups allow traffic between VPC Link and ALB
 
 ## Switching Between Configurations
 

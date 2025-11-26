@@ -15,9 +15,10 @@ provider "aws" {
 
 # Local variables for conditional logic
 locals {
-  use_existing_vpc = var.existing_vpc_id != ""
-  vpc_id           = local.use_existing_vpc ? var.existing_vpc_id : aws_vpc.main[0].id
-  public_subnet_ids = local.use_existing_vpc ? var.existing_public_subnet_ids : aws_subnet.public[*].id
+  use_existing_vpc   = var.existing_vpc_id != ""
+  vpc_id             = local.use_existing_vpc ? var.existing_vpc_id : aws_vpc.main[0].id
+  vpc_cidr_block     = local.use_existing_vpc ? data.aws_vpc.existing[0].cidr_block : aws_vpc.main[0].cidr_block
+  public_subnet_ids  = local.use_existing_vpc ? var.existing_public_subnet_ids : aws_subnet.public[*].id
   private_subnet_ids = local.use_existing_vpc ? var.existing_private_subnet_ids : aws_subnet.private[*].id
 }
 
@@ -255,6 +256,7 @@ resource "aws_route_table_association" "private" {
 resource "aws_ecr_repository" "backend" {
   name                 = "${var.project_name}-backend-${var.resource_suffix}"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -282,14 +284,15 @@ resource "aws_ecs_cluster" "main" {
 # Security Group for ECS Tasks
 resource "aws_security_group" "ecs_tasks" {
   name        = "${var.project_name}-ecs-tasks-sg-${var.resource_suffix}"
-  description = "Allow inbound traffic to ECS tasks"
+  description = "Allow inbound traffic to ECS tasks from ALB"
   vpc_id      = local.vpc_id
 
   ingress {
-    protocol    = "tcp"
-    from_port   = 8000
-    to_port     = 8000
-    cidr_blocks = ["0.0.0.0/0"]
+    protocol        = "tcp"
+    from_port       = 8000
+    to_port         = 8000
+    security_groups = [aws_security_group.alb.id]
+    description     = "Allow traffic from ALB"
   }
 
   egress {
@@ -538,10 +541,10 @@ resource "aws_ecs_service" "backend" {
 # Application Load Balancer
 resource "aws_lb" "backend" {
   name               = "${var.project_name}-alb-${var.resource_suffix}"
-  internal           = false
+  internal           = var.enable_private_deployment
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = local.public_subnet_ids
+  subnets            = var.enable_private_deployment ? local.private_subnet_ids : local.public_subnet_ids
 
   tags = {
     Name = "${var.project_name}-backend-alb-${var.resource_suffix}"
@@ -557,14 +560,16 @@ resource "aws_security_group" "alb" {
     protocol    = "tcp"
     from_port   = 80
     to_port     = 80
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.enable_private_deployment ? [local.vpc_cidr_block] : ["0.0.0.0/0"]
+    description = var.enable_private_deployment ? "Allow HTTP from VPC" : "Allow HTTP from internet"
   }
 
   ingress {
     protocol    = "tcp"
     from_port   = 443
     to_port     = 443
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.enable_private_deployment ? [local.vpc_cidr_block] : ["0.0.0.0/0"]
+    description = var.enable_private_deployment ? "Allow HTTPS from VPC" : "Allow HTTPS from internet"
   }
 
   egress {
@@ -614,6 +619,81 @@ resource "aws_lb_listener" "backend" {
   }
 }
 
+# VPC Link for API Gateway (only created when private deployment is enabled)
+resource "aws_apigatewayv2_vpc_link" "backend" {
+  count              = var.enable_private_deployment ? 1 : 0
+  name               = "${var.project_name}-vpc-link-${var.resource_suffix}"
+  security_group_ids = [aws_security_group.vpc_link[0].id]
+  subnet_ids         = local.private_subnet_ids
+
+  tags = {
+    Name = "${var.project_name}-vpc-link-${var.resource_suffix}"
+  }
+}
+
+# Security Group for VPC Link (only created when private deployment is enabled)
+resource "aws_security_group" "vpc_link" {
+  count       = var.enable_private_deployment ? 1 : 0
+  name        = "${var.project_name}-vpc-link-sg-${var.resource_suffix}"
+  description = "Security group for VPC Link"
+  vpc_id      = local.vpc_id
+
+  egress {
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-vpc-link-sg-${var.resource_suffix}"
+  }
+}
+
+# Security Group for API Gateway VPC Endpoint (only created when private API is enabled)
+resource "aws_security_group" "api_gateway_vpc_endpoint" {
+  count       = var.enable_private_api ? 1 : 0
+  name        = "${var.project_name}-apigw-vpce-sg-${var.resource_suffix}"
+  description = "Security group for API Gateway VPC Endpoint"
+  vpc_id      = local.vpc_id
+
+  ingress {
+    protocol    = "tcp"
+    from_port   = 443
+    to_port     = 443
+    cidr_blocks = [local.vpc_cidr_block]
+    description = "Allow HTTPS from VPC"
+  }
+
+  egress {
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-apigw-vpce-sg-${var.resource_suffix}"
+  }
+}
+
+# VPC Endpoint for API Gateway (only created when private API is enabled)
+resource "aws_vpc_endpoint" "api_gateway" {
+  count             = var.enable_private_api ? 1 : 0
+  vpc_id            = local.vpc_id
+  service_name      = "com.amazonaws.${var.aws_region}.execute-api"
+  vpc_endpoint_type = "Interface"
+
+  subnet_ids         = local.private_subnet_ids
+  security_group_ids = [aws_security_group.api_gateway_vpc_endpoint[0].id]
+
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.project_name}-apigw-vpce-${var.resource_suffix}"
+  }
+}
+
 # API Gateway (HTTP API)
 resource "aws_apigatewayv2_api" "backend" {
   name          = "${var.project_name}-api-${var.resource_suffix}"
@@ -626,6 +706,10 @@ resource "aws_apigatewayv2_api" "backend" {
     max_age       = 300
   }
 
+  # Disable default endpoint when private API is enabled
+  # This forces all traffic through the VPC endpoint
+  disable_execute_api_endpoint = var.enable_private_api
+
   tags = {
     Name = "${var.project_name}-api-${var.resource_suffix}"
   }
@@ -634,10 +718,11 @@ resource "aws_apigatewayv2_api" "backend" {
 resource "aws_apigatewayv2_integration" "backend" {
   api_id           = aws_apigatewayv2_api.backend.id
   integration_type = "HTTP_PROXY"
-  integration_uri  = "http://${aws_lb.backend.dns_name}"
+  integration_uri  = var.enable_private_deployment ? aws_lb_listener.backend.arn : "http://${aws_lb.backend.dns_name}"
 
   integration_method     = "ANY"
-  connection_type        = "INTERNET"
+  connection_type        = var.enable_private_deployment ? "VPC_LINK" : "INTERNET"
+  connection_id          = var.enable_private_deployment ? aws_apigatewayv2_vpc_link.backend[0].id : null
   payload_format_version = "1.0"
 }
 

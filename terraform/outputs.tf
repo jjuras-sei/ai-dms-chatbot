@@ -14,8 +14,18 @@ output "s3_bucket_name" {
 }
 
 output "api_gateway_url" {
-  description = "API Gateway endpoint URL"
-  value       = aws_apigatewayv2_api.backend.api_endpoint
+  description = "API Gateway endpoint URL (disabled when private API is enabled)"
+  value       = var.enable_private_api ? "API Gateway public endpoint is disabled. Access via VPC endpoint." : aws_apigatewayv2_api.backend.api_endpoint
+}
+
+output "api_gateway_vpc_endpoint_dns" {
+  description = "VPC Endpoint DNS names for API Gateway (only available when private API is enabled)"
+  value       = var.enable_private_api ? aws_vpc_endpoint.api_gateway[0].dns_entry[*].dns_name : []
+}
+
+output "vpc_endpoint_id" {
+  description = "VPC Endpoint ID for API Gateway (only available when private API is enabled)"
+  value       = var.enable_private_api ? aws_vpc_endpoint.api_gateway[0].id : null
 }
 
 output "alb_dns_name" {

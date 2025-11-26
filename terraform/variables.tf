@@ -90,3 +90,16 @@ variable "existing_private_subnet_ids" {
   type        = list(string)
   default     = []
 }
+
+# Deployment Mode Configuration
+variable "enable_private_deployment" {
+  description = "Enable private deployment mode. When true, the ALB will be internal and API Gateway will use VPC Link. When false, the ALB will be internet-facing (public)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_private_api" {
+  description = "Enable fully private API Gateway. When true, API Gateway will only be accessible from within the VPC via VPC endpoint. Requires enable_private_deployment to be true."
+  type        = bool
+  default     = false
+}

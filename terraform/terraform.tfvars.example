@@ -34,3 +34,13 @@ s3_bucket_names = []
 # - Must provide at least 2 private subnets in different availability zones
 # - Public subnets should have internet gateway access for the ALB
 
+# Deployment mode (optional)
+# Set to true for private deployment (ALB in private subnets with VPC Link)
+# Set to false (default) for public deployment (ALB in public subnets)
+enable_private_deployment = false
+
+# Fully private API mode (optional)
+# Set to true to make API Gateway only accessible from within VPC via VPC endpoint
+# Requires enable_private_deployment = true
+# When enabled, the public API Gateway endpoint is disabled
+enable_private_api = false
