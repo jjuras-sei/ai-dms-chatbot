@@ -15,11 +15,13 @@ provider "aws" {
 
 # Local variables for conditional logic
 locals {
-  use_existing_vpc   = var.existing_vpc_id != ""
-  vpc_id             = local.use_existing_vpc ? var.existing_vpc_id : aws_vpc.main[0].id
-  vpc_cidr_block     = local.use_existing_vpc ? data.aws_vpc.existing[0].cidr_block : aws_vpc.main[0].cidr_block
-  public_subnet_ids  = local.use_existing_vpc ? var.existing_public_subnet_ids : aws_subnet.public[*].id
-  private_subnet_ids = local.use_existing_vpc ? var.existing_private_subnet_ids : aws_subnet.private[*].id
+  use_existing_vpc      = var.existing_vpc_id != ""
+  use_existing_vpc_link = var.existing_vpc_link_id != ""
+  vpc_id                = local.use_existing_vpc ? var.existing_vpc_id : aws_vpc.main[0].id
+  vpc_cidr_block        = local.use_existing_vpc ? data.aws_vpc.existing[0].cidr_block : aws_vpc.main[0].cidr_block
+  public_subnet_ids     = local.use_existing_vpc ? var.existing_public_subnet_ids : aws_subnet.public[*].id
+  private_subnet_ids    = local.use_existing_vpc ? var.existing_private_subnet_ids : aws_subnet.private[*].id
+  vpc_link_id           = local.use_existing_vpc_link ? var.existing_vpc_link_id : (var.enable_private_deployment ? aws_apigatewayv2_vpc_link.backend[0].id : null)
 }
 
 # Data sources for existing VPC and subnets (when provided)
@@ -619,9 +621,9 @@ resource "aws_lb_listener" "backend" {
   }
 }
 
-# VPC Link for API Gateway (only created when private deployment is enabled)
+# VPC Link for API Gateway (only created when private deployment is enabled AND no existing VPC Link provided)
 resource "aws_apigatewayv2_vpc_link" "backend" {
-  count              = var.enable_private_deployment ? 1 : 0
+  count              = var.enable_private_deployment && !local.use_existing_vpc_link ? 1 : 0
   name               = "${var.project_name}-vpc-link-${var.resource_suffix}"
   security_group_ids = [aws_security_group.vpc_link[0].id]
   subnet_ids         = local.private_subnet_ids
@@ -631,9 +633,9 @@ resource "aws_apigatewayv2_vpc_link" "backend" {
   }
 }
 
-# Security Group for VPC Link (only created when private deployment is enabled)
+# Security Group for VPC Link (only created when VPC Link is being created)
 resource "aws_security_group" "vpc_link" {
-  count       = var.enable_private_deployment ? 1 : 0
+  count       = var.enable_private_deployment && !local.use_existing_vpc_link ? 1 : 0
   name        = "${var.project_name}-vpc-link-sg-${var.resource_suffix}"
   description = "Security group for VPC Link"
   vpc_id      = local.vpc_id
@@ -722,7 +724,7 @@ resource "aws_apigatewayv2_integration" "backend" {
 
   integration_method     = "ANY"
   connection_type        = var.enable_private_deployment ? "VPC_LINK" : "INTERNET"
-  connection_id          = var.enable_private_deployment ? aws_apigatewayv2_vpc_link.backend[0].id : null
+  connection_id          = local.vpc_link_id
   payload_format_version = "1.0"
 }
 

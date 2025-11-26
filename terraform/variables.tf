@@ -103,3 +103,9 @@ variable "enable_private_api" {
   type        = bool
   default     = false
 }
+
+variable "existing_vpc_link_id" {
+  description = "ID of an existing VPC Link to use for API Gateway integration. If not provided and enable_private_deployment is true, a new VPC Link will be created."
+  type        = string
+  default     = ""
+}

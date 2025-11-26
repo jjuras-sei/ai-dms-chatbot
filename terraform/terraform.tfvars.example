@@ -44,3 +44,9 @@ enable_private_deployment = false
 # Requires enable_private_deployment = true
 # When enabled, the public API Gateway endpoint is disabled
 enable_private_api = false
+
+# Existing VPC Link (optional)
+# Provide an existing VPC Link ID to use instead of creating a new one
+# Only used when enable_private_deployment = true
+# Example: existing_vpc_link_id = "abc123"
+# existing_vpc_link_id = ""
