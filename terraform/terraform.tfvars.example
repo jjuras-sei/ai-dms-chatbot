@@ -19,3 +19,18 @@ dynamodb_table_name = ""
 # You must specify bucket names to enable S3 file access via presigned URLs
 # Example: s3_bucket_names = ["my-data-bucket", "my-files-bucket"]
 s3_bucket_names = []
+
+# Networking configuration (optional)
+# By default, Terraform will create a new VPC with public and private subnets
+# To use an existing VPC and subnets, uncomment and configure the following:
+
+# existing_vpc_id = "vpc-xxxxxxxxx"
+# existing_public_subnet_ids = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]
+# existing_private_subnet_ids = ["subnet-zzzzzzzzz", "subnet-aaaaaaaaa"]
+
+# Requirements when using existing VPC/subnets:
+# - existing_vpc_id must be a valid VPC ID
+# - Must provide at least 2 public subnets in different availability zones
+# - Must provide at least 2 private subnets in different availability zones
+# - Public subnets should have internet gateway access for the ALB
+

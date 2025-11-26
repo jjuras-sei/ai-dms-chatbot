@@ -13,6 +13,30 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Local variables for conditional logic
+locals {
+  use_existing_vpc = var.existing_vpc_id != ""
+  vpc_id           = local.use_existing_vpc ? var.existing_vpc_id : aws_vpc.main[0].id
+  public_subnet_ids = local.use_existing_vpc ? var.existing_public_subnet_ids : aws_subnet.public[*].id
+  private_subnet_ids = local.use_existing_vpc ? var.existing_private_subnet_ids : aws_subnet.private[*].id
+}
+
+# Data sources for existing VPC and subnets (when provided)
+data "aws_vpc" "existing" {
+  count = local.use_existing_vpc ? 1 : 0
+  id    = var.existing_vpc_id
+}
+
+data "aws_subnet" "existing_public" {
+  count = local.use_existing_vpc ? length(var.existing_public_subnet_ids) : 0
+  id    = var.existing_public_subnet_ids[count.index]
+}
+
+data "aws_subnet" "existing_private" {
+  count = local.use_existing_vpc ? length(var.existing_private_subnet_ids) : 0
+  id    = var.existing_private_subnet_ids[count.index]
+}
+
 # S3 bucket for frontend static hosting
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.resource_suffix}"
@@ -120,8 +144,9 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
-# VPC and Networking
+# VPC and Networking (only created if existing_vpc_id is not provided)
 resource "aws_vpc" "main" {
+  count                = local.use_existing_vpc ? 0 : 1
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -132,8 +157,8 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count                   = 2
-  vpc_id                  = aws_vpc.main.id
+  count                   = local.use_existing_vpc ? 0 : 2
+  vpc_id                  = aws_vpc.main[0].id
   cidr_block              = "10.0.${count.index + 1}.0/24"
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
@@ -144,8 +169,8 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
+  count             = local.use_existing_vpc ? 0 : 2
+  vpc_id            = aws_vpc.main[0].id
   cidr_block        = "10.0.${count.index + 10}.0/24"
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
@@ -155,7 +180,8 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  count  = local.use_existing_vpc ? 0 : 1
+  vpc_id = aws_vpc.main[0].id
 
   tags = {
     Name = "${var.project_name}-igw-${var.resource_suffix}"
@@ -163,7 +189,7 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_eip" "nat" {
-  count  = 2
+  count  = local.use_existing_vpc ? 0 : 2
   domain = "vpc"
 
   tags = {
@@ -174,7 +200,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = 2
+  count         = local.use_existing_vpc ? 0 : 2
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
 
@@ -186,11 +212,12 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  count  = local.use_existing_vpc ? 0 : 1
+  vpc_id = aws_vpc.main[0].id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.main[0].id
   }
 
   tags = {
@@ -199,8 +226,8 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count  = 2
-  vpc_id = aws_vpc.main.id
+  count  = local.use_existing_vpc ? 0 : 2
+  vpc_id = aws_vpc.main[0].id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -213,13 +240,13 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route_table_association" "public" {
-  count          = 2
+  count          = local.use_existing_vpc ? 0 : 2
   subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_route_table.public[0].id
 }
 
 resource "aws_route_table_association" "private" {
-  count          = 2
+  count          = local.use_existing_vpc ? 0 : 2
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
 }
@@ -256,7 +283,7 @@ resource "aws_ecs_cluster" "main" {
 resource "aws_security_group" "ecs_tasks" {
   name        = "${var.project_name}-ecs-tasks-sg-${var.resource_suffix}"
   description = "Allow inbound traffic to ECS tasks"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     protocol    = "tcp"
@@ -490,7 +517,7 @@ resource "aws_ecs_service" "backend" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = aws_subnet.private[*].id
+    subnets          = local.private_subnet_ids
     security_groups  = [aws_security_group.ecs_tasks.id]
     assign_public_ip = false
   }
@@ -514,7 +541,7 @@ resource "aws_lb" "backend" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = aws_subnet.public[*].id
+  subnets            = local.public_subnet_ids
 
   tags = {
     Name = "${var.project_name}-backend-alb-${var.resource_suffix}"
@@ -524,7 +551,7 @@ resource "aws_lb" "backend" {
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb-sg-${var.resource_suffix}"
   description = "Security group for ALB"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     protocol    = "tcp"
@@ -556,7 +583,7 @@ resource "aws_lb_target_group" "backend" {
   name        = "${var.project_name}-tg-${var.resource_suffix}"
   port        = 8000
   protocol    = "HTTP"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
   target_type = "ip"
 
   health_check {

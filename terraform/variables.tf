@@ -71,3 +71,22 @@ variable "enable_error_viewing" {
   type        = bool
   default     = false
 }
+
+# Networking - Existing VPC/Subnet Configuration
+variable "existing_vpc_id" {
+  description = "ID of an existing VPC to use. If not provided, a new VPC will be created."
+  type        = string
+  default     = ""
+}
+
+variable "existing_public_subnet_ids" {
+  description = "List of existing public subnet IDs to use. Required if existing_vpc_id is provided. Must have at least 2 subnets in different availability zones."
+  type        = list(string)
+  default     = []
+}
+
+variable "existing_private_subnet_ids" {
+  description = "List of existing private subnet IDs to use. Required if existing_vpc_id is provided. Must have at least 2 subnets in different availability zones."
+  type        = list(string)
+  default     = []
+}
