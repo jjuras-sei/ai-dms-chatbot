@@ -72,6 +72,12 @@ variable "enable_error_viewing" {
   default     = false
 }
 
+variable "cloudwatch_log_retention_days" {
+  description = "Number of days to retain CloudWatch logs. Set to null for indefinite retention (logs never expire). Common values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653"
+  type        = number
+  default     = 7
+}
+
 # Networking - Existing VPC/Subnet Configuration
 variable "existing_vpc_id" {
   description = "ID of an existing VPC to use. If not provided, a new VPC will be created."

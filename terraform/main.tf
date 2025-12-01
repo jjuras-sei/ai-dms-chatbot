@@ -399,7 +399,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_s3" {
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "backend" {
   name              = "/ecs/${var.project_name}-backend-${var.resource_suffix}"
-  retention_in_days = 7
+  retention_in_days = var.cloudwatch_log_retention_days
 
 }
 
