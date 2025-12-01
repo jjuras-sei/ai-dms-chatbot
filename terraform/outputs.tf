@@ -20,12 +20,20 @@ output "api_gateway_url" {
 
 output "api_gateway_vpc_endpoint_dns" {
   description = "VPC Endpoint DNS names for API Gateway (only available when private API is enabled)"
-  value       = var.enable_private_api ? aws_vpc_endpoint.api_gateway[0].dns_entry[*].dns_name : []
+  value = var.enable_private_api ? (
+    local.use_existing_api_gateway_vpc_endpoint ? 
+      ["Using existing VPC endpoint: ${var.existing_api_gateway_vpc_endpoint_id}"] : 
+      aws_vpc_endpoint.api_gateway[0].dns_entry[*].dns_name
+  ) : []
 }
 
 output "vpc_endpoint_id" {
   description = "VPC Endpoint ID for API Gateway (only available when private API is enabled)"
-  value       = var.enable_private_api ? aws_vpc_endpoint.api_gateway[0].id : null
+  value = var.enable_private_api ? (
+    local.use_existing_api_gateway_vpc_endpoint ? 
+      var.existing_api_gateway_vpc_endpoint_id : 
+      aws_vpc_endpoint.api_gateway[0].id
+  ) : null
 }
 
 output "alb_dns_name" {
