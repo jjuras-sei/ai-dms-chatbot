@@ -104,6 +104,12 @@ variable "enable_private_api" {
   default     = false
 }
 
+variable "disable_execute_api_endpoint" {
+  description = "Disable the default execute-api endpoint for API Gateway. When null (default), this will be set to the value of enable_private_api. Set to true to force disable the endpoint, or false to force enable it."
+  type        = bool
+  default     = null
+}
+
 variable "existing_api_gateway_vpc_endpoint_id" {
   description = "ID of an existing VPC Endpoint for API Gateway (execute-api). If not provided and enable_private_api is true, a new VPC endpoint will be created."
   type        = string

@@ -45,6 +45,13 @@ enable_private_deployment = false
 # When enabled, the public API Gateway endpoint is disabled
 enable_private_api = false
 
+# Disable execute-api endpoint (optional)
+# Controls whether the default execute-api endpoint is disabled
+# When null (default), this will be set to the value of enable_private_api
+# Set to true to force disable the endpoint, or false to force enable it
+# This allows you to have enable_private_api = true with the endpoint still enabled
+# disable_execute_api_endpoint = null
+
 # Existing API Gateway VPC Endpoint (optional)
 # Provide an existing VPC Endpoint ID for API Gateway (execute-api service)
 # Only used when enable_private_api = true

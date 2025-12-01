@@ -14,8 +14,8 @@ output "s3_bucket_name" {
 }
 
 output "api_gateway_url" {
-  description = "API Gateway endpoint URL (disabled when private API is enabled)"
-  value       = var.enable_private_api ? "API Gateway public endpoint is disabled. Access via VPC endpoint." : aws_apigatewayv2_api.backend.api_endpoint
+  description = "API Gateway endpoint URL (disabled when disable_execute_api_endpoint is true)"
+  value       = (var.disable_execute_api_endpoint != null ? var.disable_execute_api_endpoint : var.enable_private_api) ? "API Gateway public endpoint is disabled. Access via VPC endpoint." : aws_apigatewayv2_api.backend.api_endpoint
 }
 
 output "api_gateway_vpc_endpoint_dns" {

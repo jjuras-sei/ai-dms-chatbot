@@ -630,9 +630,9 @@ resource "aws_apigatewayv2_api" "backend" {
     max_age       = 300
   }
 
-  # Disable default endpoint when private API is enabled
-  # This forces all traffic through the VPC endpoint
-  disable_execute_api_endpoint = var.enable_private_api
+  # Disable default endpoint when explicitly set or when private API is enabled
+  # If disable_execute_api_endpoint is null, it defaults to enable_private_api value
+  disable_execute_api_endpoint = var.disable_execute_api_endpoint != null ? var.disable_execute_api_endpoint : var.enable_private_api
 
 }
 
