@@ -6,6 +6,7 @@ set -e
 # Parse command line arguments
 SKIP_BACKEND=false
 SKIP_FRONTEND=false
+CLEAR_DATA=false
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -13,6 +14,7 @@ usage() {
     echo "Options:"
     echo "  --skip-backend     Skip backend deployment (Docker build and ECS update)"
     echo "  --skip-frontend    Skip frontend deployment (Next.js build and S3 upload)"
+    echo "  --clear-data       Clear S3 data buckets and DynamoDB table (only if backend is deployed)"
     echo "  -h, --help         Show this help message"
     echo ""
     echo "Note: Infrastructure (Terraform) is always deployed regardless of flags."
@@ -27,6 +29,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-frontend)
             SKIP_FRONTEND=true
+            shift
+            ;;
+        --clear-data)
+            CLEAR_DATA=true
             shift
             ;;
         -h|--help)
@@ -47,6 +53,7 @@ echo "Deployment Configuration:"
 echo "  - Infrastructure: ALWAYS"
 echo "  - Backend: $([ "$SKIP_BACKEND" = true ] && echo "SKIP" || echo "DEPLOY")"
 echo "  - Frontend: $([ "$SKIP_FRONTEND" = true ] && echo "SKIP" || echo "DEPLOY")"
+echo "  - Clear Data: $([ "$CLEAR_DATA" = true ] && echo "YES" || echo "NO")"
 echo ""
 
 # Check if AWS CLI is configured
@@ -106,12 +113,65 @@ echo "ECR Repository: $ECR_REPO_URL"
 echo "API Gateway URL: $API_GATEWAY_URL"
 echo ""
 
-# Step 2: Build and push backend Docker image (CONDITIONAL)
+# Step 2: Clear data if requested (CONDITIONAL - only when backend is deployed)
+if [ "$SKIP_BACKEND" = false ] && [ "$CLEAR_DATA" = true ]; then
+    echo "Step 2: Clearing data S3 buckets and DynamoDB table..."
+    
+    # Get data bucket names and DynamoDB table name from terraform
+    cd terraform
+    DYNAMODB_TABLE=$(terraform output -raw dynamodb_table_name 2>/dev/null || echo "")
+    S3_DATA_BUCKETS=$(terraform output -json s3_data_bucket_names 2>/dev/null || echo "[]")
+    cd ..
+    
+    # Clear DynamoDB table if configured
+    if [ -n "$DYNAMODB_TABLE" ] && [ "$DYNAMODB_TABLE" != "" ]; then
+        echo "  - Clearing DynamoDB table: $DYNAMODB_TABLE"
+        
+        # Scan and delete all items from the table
+        aws dynamodb scan \
+            --table-name "$DYNAMODB_TABLE" \
+            --attributes-to-get "id" \
+            --region "$AWS_REGION" \
+            --output json | \
+        jq -r '.Items[] | @json' | \
+        while read -r item; do
+            key=$(echo "$item" | jq '{id: .id}')
+            aws dynamodb delete-item \
+                --table-name "$DYNAMODB_TABLE" \
+                --key "$key" \
+                --region "$AWS_REGION" \
+                --no-cli-pager
+        done
+        
+        echo "    ✓ DynamoDB table cleared"
+    else
+        echo "  - No DynamoDB table configured, skipping"
+    fi
+    
+    # Clear S3 data buckets if configured
+    if [ "$S3_DATA_BUCKETS" != "[]" ] && [ "$S3_DATA_BUCKETS" != "null" ]; then
+        echo "$S3_DATA_BUCKETS" | jq -r '.[]' | while read -r bucket; do
+            if [ -n "$bucket" ]; then
+                echo "  - Clearing S3 bucket: $bucket"
+                aws s3 rm "s3://$bucket/" --recursive --region "$AWS_REGION"
+                echo "    ✓ S3 bucket cleared"
+            fi
+        done
+    else
+        echo "  - No S3 data buckets configured, skipping"
+    fi
+    
+    echo ""
+    echo "Data cleared successfully!"
+    echo ""
+fi
+
+# Step 3: Build and push backend Docker image (CONDITIONAL)
 if [ "$SKIP_BACKEND" = true ]; then
-    echo "Step 2: Skipping backend deployment (--skip-backend flag set)"
+    echo "Step 3: Skipping backend deployment (--skip-backend flag set)"
     echo ""
 else
-    echo "Step 2: Building and pushing backend Docker image..."
+    echo "Step 3: Building and pushing backend Docker image..."
     
     # Copy configuration files into backend directory for Docker build
     echo "  - Copying configuration files to backend/"
@@ -136,8 +196,8 @@ else
     echo "Backend Docker image pushed successfully!"
     echo ""
 
-    # Step 3: Update ECS service to use new image
-    echo "Step 3: Updating ECS service..."
+    # Step 4: Update ECS service to use new image
+    echo "Step 4: Updating ECS service..."
     aws ecs update-service \
         --no-cli-pager \
         --cluster $ECS_CLUSTER \
@@ -156,12 +216,12 @@ else
     echo ""
 fi
 
-# Step 4: Build and deploy frontend (CONDITIONAL)
+# Step 5: Build and deploy frontend (CONDITIONAL)
 if [ "$SKIP_FRONTEND" = true ]; then
-    echo "Step 4: Skipping frontend deployment (--skip-frontend flag set)"
+    echo "Step 5: Skipping frontend deployment (--skip-frontend flag set)"
     echo ""
 else
-    echo "Step 4: Building and deploying frontend..."
+    echo "Step 5: Building and deploying frontend..."
     cd frontend
 
     # If .env.prod file exists, use the values from that as .env.local instead of building new .env.local

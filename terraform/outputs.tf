@@ -55,3 +55,13 @@ output "ecs_service_name" {
   description = "ECS service name"
   value       = aws_ecs_service.backend.name
 }
+
+output "dynamodb_table_name" {
+  description = "DynamoDB table name configured for the application"
+  value       = var.dynamodb_table_name
+}
+
+output "s3_data_bucket_names" {
+  description = "List of S3 data bucket names configured for the application"
+  value       = var.s3_bucket_names
+}
