@@ -20,20 +20,6 @@ variable "bedrock_model_id" {
   description = "AWS Bedrock model ID to use for the chatbot"
   type        = string
   default     = "anthropic.claude-3-sonnet-20240229-v1:0"
-  
-  validation {
-    condition = contains([
-      "anthropic.claude-3-sonnet-20240229-v1:0",
-      "anthropic.claude-3-haiku-20240307-v1:0",
-      "anthropic.claude-v2:1",
-      "anthropic.claude-v2",
-      "anthropic.claude-instant-v1",
-      "meta.llama2-13b-chat-v1",
-      "meta.llama2-70b-chat-v1",
-      "amazon.titan-text-express-v1"
-    ], var.bedrock_model_id)
-    error_message = "Invalid Bedrock model ID. Please use a supported model."
-  }
 }
 
 variable "ecs_task_cpu" {
