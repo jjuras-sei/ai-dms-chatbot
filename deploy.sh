@@ -164,21 +164,27 @@ else
     echo "Step 4: Building and deploying frontend..."
     cd frontend
 
-    # Update or create .env.local with API Gateway URL
-    if [ -f ".env.local" ]; then
-        echo "  - Updating existing .env.local file"
-        # Check if NEXT_PUBLIC_API_URL exists in the file
-        if grep -q "^NEXT_PUBLIC_API_URL=" .env.local; then
-            # Update existing API URL line
-            sed -i.bak "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=$API_GATEWAY_URL|" .env.local
-            rm -f .env.local.bak
-        else
-            # Add API URL to existing file
-            echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" >> .env.local
-        fi
+    # If .env.prod file exists, use the values from that as .env.local instead of building new .env.local
+    if [ -f ".env.prod" ]; then
+        cp .env.prod .env.local
+        echo "  - .env.prod file exists. Copying it to .env.local instead of building new .env.local"
     else
-        echo "  - Creating new .env.local file"
-        echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
+        # Update or create .env.local with API Gateway URL
+        if [ -f ".env.local" ]; then
+            echo "  - Updating existing .env.local file"
+            # Check if NEXT_PUBLIC_API_URL exists in the file
+            if grep -q "^NEXT_PUBLIC_API_URL=" .env.local; then
+                # Update existing API URL line
+                sed -i.bak "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=$API_GATEWAY_URL|" .env.local
+                rm -f .env.local.bak
+            else
+                # Add API URL to existing file
+                echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" >> .env.local
+            fi
+        else
+            echo "  - Creating new .env.local file"
+            echo "NEXT_PUBLIC_API_URL=$API_GATEWAY_URL" > .env.local
+        fi
     fi
 
     # Install dependencies and build
