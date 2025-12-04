@@ -7,15 +7,17 @@ set -e
 SKIP_BACKEND=false
 SKIP_FRONTEND=false
 CLEAR_DATA=false
+OVERWRITE_SYSTEMPROMPT=false
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  --skip-backend     Skip backend deployment (Docker build and ECS update)"
-    echo "  --skip-frontend    Skip frontend deployment (Next.js build and S3 upload)"
-    echo "  --clear-data       Clear S3 data buckets and DynamoDB table (only if backend is deployed)"
-    echo "  -h, --help         Show this help message"
+    echo "  --skip-backend              Skip backend deployment (Docker build and ECS update)"
+    echo "  --skip-frontend             Skip frontend deployment (Next.js build and S3 upload)"
+    echo "  --clear-data                Clear S3 data buckets and DynamoDB table (only if backend is deployed)"
+    echo "  --overwrite-systemprompt    Upload and overwrite system prompt in S3 bucket"
+    echo "  -h, --help                  Show this help message"
     echo ""
     echo "Note: Infrastructure (Terraform) is always deployed regardless of flags."
     exit 0
@@ -33,6 +35,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --clear-data)
             CLEAR_DATA=true
+            shift
+            ;;
+        --overwrite-systemprompt)
+            OVERWRITE_SYSTEMPROMPT=true
             shift
             ;;
         -h|--help)
@@ -112,6 +118,27 @@ echo "Infrastructure deployed successfully!"
 echo "ECR Repository: $ECR_REPO_URL"
 echo "API Gateway URL: $API_GATEWAY_URL"
 echo ""
+
+# Step 1.5: Upload system prompt to S3 if requested (CONDITIONAL)
+if [ "$OVERWRITE_SYSTEMPROMPT" = true ]; then
+    echo "Step 1.5: Uploading system prompt to S3..."
+    
+    # Get system prompt bucket name from terraform
+    cd terraform
+    SYSTEM_PROMPT_BUCKET=$(terraform output -raw system_prompt_bucket_name)
+    cd ..
+    
+    if [ ! -f "system_prompt.txt" ]; then
+        echo "  - Error: system_prompt.txt file not found!"
+        exit 1
+    fi
+    
+    echo "  - Uploading system_prompt.txt to s3://$SYSTEM_PROMPT_BUCKET/system_prompt.txt"
+    aws s3 cp system_prompt.txt "s3://$SYSTEM_PROMPT_BUCKET/system_prompt.txt" --region "$AWS_REGION"
+    
+    echo "    ✓ System prompt uploaded successfully!"
+    echo ""
+fi
 
 # Step 2: Clear data if requested (CONDITIONAL - only when backend is deployed)
 if [ "$SKIP_BACKEND" = false ] && [ "$CLEAR_DATA" = true ]; then

@@ -73,7 +73,25 @@ s3 = boto3.client(
 
 # Load system prompt and schema
 def load_system_prompt():
-    """Load the system prompt from file"""
+    """Load the system prompt from S3 or fallback to file"""
+    system_prompt_bucket = os.getenv('SYSTEM_PROMPT_BUCKET', '')
+    
+    # Try to load from S3 first if bucket is configured
+    if system_prompt_bucket:
+        try:
+            logger.info(f"Attempting to load system prompt from S3: {system_prompt_bucket}/system_prompt.txt")
+            response = s3.get_object(
+                Bucket=system_prompt_bucket,
+                Key='system_prompt.txt'
+            )
+            prompt = response['Body'].read().decode('utf-8')
+            logger.info("Successfully loaded system prompt from S3")
+            return prompt
+        except Exception as e:
+            logger.warning(f"Failed to load system prompt from S3: {str(e)}")
+            logger.info("Falling back to local file")
+    
+    # Fallback to local file
     try:
         # Try current directory first, then parent directory
         if os.path.exists('system_prompt.txt'):
@@ -590,6 +608,83 @@ async def reload_config():
         "message": "Configuration reloaded",
         "schema_loaded": bool(DATABASE_SCHEMA)
     }
+
+@app.get("/system-prompt")
+async def get_system_prompt():
+    """
+    Get the current system prompt
+    """
+    try:
+        system_prompt_bucket = os.getenv('SYSTEM_PROMPT_BUCKET', '')
+        
+        if not system_prompt_bucket:
+            logger.warning("SYSTEM_PROMPT_BUCKET not configured, returning in-memory prompt")
+            return {"system_prompt": SYSTEM_PROMPT}
+        
+        logger.info(f"Fetching system prompt from S3: {system_prompt_bucket}/system_prompt.txt")
+        response = s3.get_object(
+            Bucket=system_prompt_bucket,
+            Key='system_prompt.txt'
+        )
+        prompt = response['Body'].read().decode('utf-8')
+        logger.info("Successfully fetched system prompt from S3")
+        return {"system_prompt": prompt}
+    
+    except Exception as e:
+        logger.error(f"Failed to fetch system prompt: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch system prompt: {str(e)}"
+        )
+
+class SystemPromptUpdate(BaseModel):
+    system_prompt: str
+
+@app.put("/system-prompt")
+async def update_system_prompt(request: SystemPromptUpdate):
+    """
+    Update the system prompt in S3 and reload it
+    """
+    try:
+        system_prompt_bucket = os.getenv('SYSTEM_PROMPT_BUCKET', '')
+        
+        if not system_prompt_bucket:
+            logger.error("SYSTEM_PROMPT_BUCKET not configured")
+            raise HTTPException(
+                status_code=400,
+                detail="System prompt bucket not configured"
+            )
+        
+        logger.info(f"Updating system prompt in S3: {system_prompt_bucket}/system_prompt.txt")
+        
+        # Upload new system prompt to S3
+        s3.put_object(
+            Bucket=system_prompt_bucket,
+            Key='system_prompt.txt',
+            Body=request.system_prompt.encode('utf-8'),
+            ContentType='text/plain'
+        )
+        
+        # Reload system prompt into memory
+        global SYSTEM_PROMPT
+        SYSTEM_PROMPT = request.system_prompt
+        
+        logger.info("Successfully updated system prompt in S3 and reloaded")
+        return {
+            "message": "System prompt updated successfully",
+            "system_prompt": SYSTEM_PROMPT
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update system prompt: {str(e)}")
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update system prompt: {str(e)}"
+        )
 
 @app.post("/presigned-url")
 async def get_presigned_url(request: dict):

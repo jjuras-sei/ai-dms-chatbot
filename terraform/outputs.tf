@@ -65,3 +65,8 @@ output "s3_data_bucket_names" {
   description = "List of S3 data bucket names configured for the application"
   value       = var.s3_bucket_names
 }
+
+output "system_prompt_bucket_name" {
+  description = "S3 bucket name for system prompt storage"
+  value       = aws_s3_bucket.system_prompt.id
+}

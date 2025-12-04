@@ -44,6 +44,20 @@ resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend-${var.resource_suffix}"
 }
 
+# S3 bucket for system prompt storage
+resource "aws_s3_bucket" "system_prompt" {
+  bucket = "${var.project_name}-system-prompt-${var.resource_suffix}"
+}
+
+resource "aws_s3_bucket_public_access_block" "system_prompt" {
+  bucket = aws_s3_bucket.system_prompt.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
@@ -379,6 +393,26 @@ resource "aws_iam_policy" "s3_access" {
   })
 }
 
+# IAM Policy for System Prompt S3 Bucket Access
+resource "aws_iam_policy" "system_prompt_s3_access" {
+  name        = "${var.project_name}-system-prompt-s3-${var.resource_suffix}"
+  description = "Policy for accessing system prompt S3 bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.system_prompt.arn}/*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.bedrock_access.arn
@@ -394,6 +428,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_s3" {
 
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.s3_access[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_system_prompt_s3" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.system_prompt_s3_access.arn
 }
 
 # CloudWatch Log Group
@@ -443,6 +482,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "ENABLE_ERROR_VIEWING"
           value = tostring(var.enable_error_viewing)
+        },
+        {
+          name  = "SYSTEM_PROMPT_BUCKET"
+          value = aws_s3_bucket.system_prompt.id
         }
       ]
 
