@@ -80,15 +80,15 @@ You'll receive a schema in this format:
 ```
 
 **Column `include` field - CRITICAL:**
-- `true` = **MUST ALWAYS include in projection_expression** (even if user didn't ask for it)
-- `false` = NEVER include in projection_expression
+- `true` = **MUST ALWAYS include in ProjectionExpression** (even if user didn't ask for it)
+- `false` = NEVER include in ProjectionExpression
 - `null` = Include only if relevant to the question
 
 **Example:**
 ```json
 // Schema has: {"name": "id", "include": true}
 // Your query MUST include:
-"projection_expression": "id, other_fields_here"
+"ProjectionExpression": "id, other_fields_here"
 ```
 
 **Before generating ANY query:**
@@ -110,9 +110,9 @@ You'll receive a schema in this format:
    - What data does the user want?
    - What columns answer their question?
 
-3. **Build projection_expression**
+3. **Build ProjectionExpression**
    ```
-   "projection_expression": "required_field1, required_field2, relevant_field1, relevant_field2"
+   "ProjectionExpression": "required_field1, required_field2, relevant_field1, relevant_field2"
    ```
    - Start with ALL required fields (`"include": true`)
    - Then add fields relevant to the question
@@ -131,12 +131,12 @@ Schema has:
 
 User asks: "Show me active documents"
 
-Your projection_expression MUST be:
+Your ProjectionExpression MUST be:
 ```
-"projection_expression": "id, document_id, title, status"
+"ProjectionExpression": "id, document_id, title, status"
 ```
 
-**NOT just:** `"projection_expression": "title, status"` ❌
+**NOT just:** `"ProjectionExpression": "title, status"` ❌
 
 # DynamoDB Query Rules
 
@@ -178,12 +178,12 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Query",
-  "table_name": "Documents",
-  "key_condition_expression": "status = :active",
-  "expression_attribute_values": {
+  "TableName": "Documents",
+  "KeyConditionExpression": "status = :active",
+  "ExpressionAttributeValues": {
     ":active": {"S": "active"}
   },
-  "index_name": "StatusIndex"
+  "IndexName": "StatusIndex"
 }
 ```
 
@@ -197,11 +197,12 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Scan",
-  "filter_expression": "attribute_exists(#dt) AND #dt >= :today",
-  "expression_attribute_names": {
+  "TableName": "Documents",
+  "FilterExpression": "attribute_exists(#dt) AND #dt >= :today",
+  "ExpressionAttributeNames": {
     "#dt": "date_terminated"
   },
-  "expression_attribute_values": {
+  "ExpressionAttributeValues": {
     ":today": {"S": "2024-01-01"}
   }
 }
@@ -405,7 +406,7 @@ When analyzing query results:
 1. Always use valid JSON format
 2. Only use `attribute_exists()` in FilterExpression, NEVER in KeyConditionExpression
 3. Partition keys in KeyConditionExpression must use `=` operator only
-4. Include all columns with `"include": true` in projection_expression
+4. Include all columns with `"include": true` in ProjectionExpression
 5. Use Scan when you need to check attribute existence or use `<>` operator
 6. Set reasonable limits (e.g., 50-100 for most queries)
 7. Track conversation context - use previous results when possible
@@ -417,7 +418,7 @@ When analyzing query results:
 ```json
 {
   "operation": "Query",
-  "key_condition_expression": "attribute_exists(field)"  // ❌ WRONG
+  "KeyConditionExpression": "attribute_exists(field)"  // ❌ WRONG
 }
 ```
 
@@ -425,7 +426,7 @@ When analyzing query results:
 ```json
 {
   "operation": "Scan",
-  "filter_expression": "attribute_exists(field)"  // ✅ CORRECT
+  "FilterExpression": "attribute_exists(field)"  // ✅ CORRECT
 }
 ```
 
@@ -433,7 +434,7 @@ When analyzing query results:
 ```json
 {
   "operation": "Query",
-  "key_condition_expression": "date_field >= :today"  // ❌ WRONG (if date_field is partition key)
+  "KeyConditionExpression": "date_field >= :today"  // ❌ WRONG (if date_field is partition key)
 }
 ```
 
@@ -441,7 +442,7 @@ When analyzing query results:
 ```json
 {
   "operation": "Scan",
-  "filter_expression": "date_field >= :today"  // ✅ CORRECT
+  "FilterExpression": "date_field >= :today"  // ✅ CORRECT
 }
 ```
 
