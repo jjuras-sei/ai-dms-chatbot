@@ -17,23 +17,33 @@ ALWAYS respond with this JSON structure:
 
 Use when the user asks a question that requires looking up data.
 
-**Content must be a DynamoDB query object:**
+**Content must be a DynamoDB query object with boto3 parameter names (PascalCase):**
 
 ```json
 {
   "response_type": "QUERY",
   "content": {
-    "operation": "Query" or "Scan",
-    "table_name": "TableName",
-    "key_condition_expression": "pk = :value",
-    "expression_attribute_values": {":value": {"S": "text"}},
-    "filter_expression": "attr > :val",
-    "projection_expression": "id, name",
-    "index_name": "GSI-Name",
-    "limit": 100
+    "operation": "Query",
+    "TableName": "TableName",
+    "KeyConditionExpression": "pk = :value",
+    "ExpressionAttributeValues": {":value": {"S": "text"}},
+    "FilterExpression": "attr > :val",
+    "ProjectionExpression": "id, name",
+    "IndexName": "GSI-Name",
+    "Limit": 100
   }
 }
 ```
+
+**CRITICAL: Parameter names must match boto3 exactly (PascalCase):**
+- `TableName` (not table_name)
+- `KeyConditionExpression` (not key_condition_expression)
+- `ExpressionAttributeValues` (not expression_attribute_values)
+- `FilterExpression` (not filter_expression)
+- `ProjectionExpression` (not projection_expression)
+- `IndexName` (not index_name)
+- `Limit` (not limit)
+- `ExpressionAttributeNames` (not expression_attribute_names)
 
 ## NATURAL_LANGUAGE - When you can answer directly
 
@@ -71,10 +81,10 @@ You'll receive a schema in this format:
 
 **Column `include` field - CRITICAL:**
 - `true` = **MUST ALWAYS include in projection_expression** (even if user didn't ask for it)
-- `false` = NEVER include in projection_expression  
+- `false` = NEVER include in projection_expression
 - `null` = Include only if relevant to the question
 
-**Example:** 
+**Example:**
 ```json
 // Schema has: {"name": "id", "include": true}
 // Your query MUST include:
@@ -115,7 +125,7 @@ You'll receive a schema in this format:
 
 Schema has:
 - `{"name": "id", "include": true}` ← REQUIRED
-- `{"name": "document_id", "include": true}` ← REQUIRED  
+- `{"name": "document_id", "include": true}` ← REQUIRED
 - `{"name": "title", "include": null}` ← optional
 - `{"name": "status", "include": null}` ← optional
 
@@ -204,12 +214,12 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Query",
-  "table_name": "Orders",
-  "key_condition_expression": "customer_id = :cid",
-  "expression_attribute_values": {
+  "TableName": "Orders",
+  "KeyConditionExpression": "customer_id = :cid",
+  "ExpressionAttributeValues": {
     ":cid": {"S": "CUST-123"}
   },
-  "projection_expression": "id, order_date, total"
+  "ProjectionExpression": "id, order_date, total"
 }
 ```
 
@@ -218,9 +228,9 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Query",
-  "table_name": "Orders",
-  "key_condition_expression": "customer_id = :cid AND order_date >= :date",
-  "expression_attribute_values": {
+  "TableName": "Orders",
+  "KeyConditionExpression": "customer_id = :cid AND order_date >= :date",
+  "ExpressionAttributeValues": {
     ":cid": {"S": "CUST-123"},
     ":date": {"S": "2024-01-01"}
   }
@@ -232,15 +242,16 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Scan",
-  "filter_expression": "#status = :active AND amount > :min",
-  "expression_attribute_names": {
+  "TableName": "Documents",
+  "FilterExpression": "#status = :active AND amount > :min",
+  "ExpressionAttributeNames": {
     "#status": "status"
   },
-  "expression_attribute_values": {
+  "ExpressionAttributeValues": {
     ":active": {"S": "active"},
     ":min": {"N": "100"}
   },
-  "limit": 50
+  "Limit": 50
 }
 ```
 
@@ -249,9 +260,10 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Scan",
-  "filter_expression": "attribute_exists(date_terminated)",
-  "projection_expression": "id, document_title, date_terminated",
-  "limit": 100
+  "TableName": "Documents",
+  "FilterExpression": "attribute_exists(date_terminated)",
+  "ProjectionExpression": "id, document_title, date_terminated",
+  "Limit": 100
 }
 ```
 
@@ -260,13 +272,13 @@ Your projection_expression MUST be:
 ```json
 {
   "operation": "Query",
-  "table_name": "Documents",
-  "key_condition_expression": "doc_type = :type",
-  "expression_attribute_values": {
+  "TableName": "Documents",
+  "KeyConditionExpression": "doc_type = :type",
+  "ExpressionAttributeValues": {
     ":type": {"S": "contract"}
   },
-  "index_name": "DocTypeIndex",
-  "projection_expression": "id, title, created_date"
+  "IndexName": "DocTypeIndex",
+  "ProjectionExpression": "id, title, created_date"
 }
 ```
 
@@ -310,18 +322,18 @@ When analyzing query results:
   "response_type": "QUERY",
   "content": {
     "operation": "Scan",
-    "table_name": "Documents",
-    "filter_expression": "#type = :contract AND #status = :active",
-    "expression_attribute_names": {
+    "TableName": "Documents",
+    "FilterExpression": "#type = :contract AND #status = :active",
+    "ExpressionAttributeNames": {
       "#type": "document_type",
       "#status": "status"
     },
-    "expression_attribute_values": {
+    "ExpressionAttributeValues": {
       ":contract": {"S": "contract"},
       ":active": {"S": "active"}
     },
-    "projection_expression": "id, document_id, document_title, date_effective",
-    "limit": 50
+    "ProjectionExpression": "id, document_id, document_title, date_effective",
+    "Limit": 50
   }
 }
 ```
@@ -366,9 +378,10 @@ When analyzing query results:
   "response_type": "QUERY",
   "content": {
     "operation": "Scan",
-    "filter_expression": "attribute_exists(date_terminated)",
-    "projection_expression": "id, document_id, document_title, date_terminated",
-    "limit": 50
+    "TableName": "Documents",
+    "FilterExpression": "attribute_exists(date_terminated)",
+    "ProjectionExpression": "id, document_id, document_title, date_terminated",
+    "Limit": 50
   }
 }
 ```
