@@ -481,44 +481,24 @@ def extract_json_from_response(response: str) -> dict:
 
 async def execute_dynamodb_query(query: dict) -> dict:
     """
-    Execute a DynamoDB query and return results
+    Execute a DynamoDB query and return results.
+    Query must contain boto3-compatible parameter names (PascalCase).
     """
     operation = query.get('operation', 'Query')
-    table_name = query.get('table_name')
+    table_name = query.get('TableName')
     
     try:
         if not table_name:
-            raise ValueError("table_name is required in query")
+            raise ValueError("TableName is required in query")
         
         logger.info(f"Executing DynamoDB {operation} on table: {table_name}")
         
-        # Build DynamoDB request parameters
-        params = {
-            'TableName': table_name
-        }
+        # Build DynamoDB request parameters by copying query and removing 'operation'
+        params = {k: v for k, v in query.items() if k != 'operation'}
         
-        # Add optional parameters
-        if 'key_condition_expression' in query:
-            params['KeyConditionExpression'] = query['key_condition_expression']
-        
-        if 'expression_attribute_values' in query:
-            params['ExpressionAttributeValues'] = query['expression_attribute_values']
-        
-        if 'filter_expression' in query:
-            params['FilterExpression'] = query['filter_expression']
-        
-        if 'projection_expression' in query:
-            params['ProjectionExpression'] = query['projection_expression']
-        
-        if 'index_name' in query:
-            params['IndexName'] = query['index_name']
-            logger.info(f"Using index: {query['index_name']}")
-        
-        if 'limit' in query:
-            params['Limit'] = query['limit']
-        
-        if 'expression_attribute_names' in query:
-            params['ExpressionAttributeNames'] = query['expression_attribute_names']
+        # Log index usage if present
+        if 'IndexName' in params:
+            logger.info(f"Using index: {params['IndexName']}")
         
         # Execute appropriate operation
         if operation == 'Query':
@@ -526,14 +506,12 @@ async def execute_dynamodb_query(query: dict) -> dict:
         elif operation == 'Scan':
             response = dynamodb.scan(**params)
         elif operation == 'GetItem':
-            if 'Key' in query:
-                params['Key'] = query['Key']
             response = dynamodb.get_item(**params)
         elif operation == 'BatchGetItem':
-            if 'RequestItems' in query:
-                response = dynamodb.batch_get_item(RequestItems=query['RequestItems'])
-            else:
+            if 'RequestItems' not in params:
                 raise ValueError("BatchGetItem requires RequestItems")
+            # BatchGetItem doesn't use TableName in params, it's in RequestItems
+            response = dynamodb.batch_get_item(RequestItems=params['RequestItems'])
         else:
             raise ValueError(f"Unsupported operation: {operation}")
         
