@@ -58,6 +58,12 @@ variable "enable_error_viewing" {
   default     = false
 }
 
+variable "llm_analyze_results" {
+  description = "Enable LLM analysis of query results. When true, the LLM will analyze and summarize query results. When false, a static message with result count will be returned."
+  type        = bool
+  default     = false
+}
+
 variable "cloudwatch_log_retention_days" {
   description = "Number of days to retain CloudWatch logs. Set to null for indefinite retention (logs never expire). Common values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653"
   type        = number

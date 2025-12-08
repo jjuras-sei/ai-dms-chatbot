@@ -124,6 +124,7 @@ SYSTEM_PROMPT = load_system_prompt()
 DATABASE_SCHEMA = load_schema()
 DYNAMODB_TABLE_NAME = os.getenv('DYNAMODB_TABLE_NAME', '')
 ENABLE_ERROR_VIEWING = os.getenv('ENABLE_ERROR_VIEWING', 'false').lower() == 'true'
+LLM_ANALYZE_RESULTS = os.getenv('LLM_ANALYZE_RESULTS', 'false').lower() == 'true'
 
 # In-memory conversation storage (use DynamoDB for production)
 conversations = {}
@@ -297,26 +298,32 @@ async def process_with_history(model_id: str, conversation_id: str, history: Lis
             
             logger.info(f"Query executed, got {query_results.get('Count', 0)} results")
             
-            # Add query results to conversation as system message
-            system_message = Message(
-                role="system",
-                content=f"Query Results:\n{json.dumps(query_results, indent=2)}",
-                timestamp=datetime.utcnow().isoformat()
-            )
-            conversations[conversation_id].append(system_message)
-            
-            # Call LLM again to analyze results
-            logger.info(f"Requesting LLM analysis of query results for conversation: {conversation_id}")
-            analysis_prompt = build_conversation_prompt(conversations[conversation_id])
-            analysis_response = await invoke_bedrock(model_id, analysis_prompt)
-            
-            # Parse analysis response - always use content field only
-            analysis_obj = extract_json_from_response(analysis_response)
-            response_text = analysis_obj.get('content', '')
-            
-            # Log if content is empty
-            if not response_text:
-                logger.warning(f"Analysis response has empty content field for conversation: {conversation_id}")
+            # Check if LLM analysis is enabled
+            if LLM_ANALYZE_RESULTS:
+                # Add query results to conversation as system message
+                system_message = Message(
+                    role="system",
+                    content=f"Query Results:\n{json.dumps(query_results, indent=2)}",
+                    timestamp=datetime.utcnow().isoformat()
+                )
+                conversations[conversation_id].append(system_message)
+                
+                # Call LLM again to analyze results
+                logger.info(f"Requesting LLM analysis of query results for conversation: {conversation_id}")
+                analysis_prompt = build_conversation_prompt(conversations[conversation_id])
+                analysis_response = await invoke_bedrock(model_id, analysis_prompt)
+                
+                # Parse analysis response - always use content field only
+                analysis_obj = extract_json_from_response(analysis_response)
+                response_text = analysis_obj.get('content', '')
+                
+                # Log if content is empty
+                if not response_text:
+                    logger.warning(f"Analysis response has empty content field for conversation: {conversation_id}")
+            else:
+                # Create static message with result count
+                result_count = query_results.get('Count', 0)
+                response_text = f"Query executed successfully. Found {result_count} result{'s' if result_count != 1 else ''}."
             
             # Return response with query data and the original query
             # Store query in the results dict

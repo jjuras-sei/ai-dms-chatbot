@@ -486,6 +486,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "SYSTEM_PROMPT_BUCKET"
           value = aws_s3_bucket.system_prompt.id
+        },
+        {
+          name  = "LLM_ANALYZE_RESULTS"
+          value = tostring(var.llm_analyze_results)
         }
       ]
 
