@@ -443,6 +443,10 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "ENABLE_ERROR_VIEWING"
           value = tostring(var.enable_error_viewing)
+        },
+        {
+          name  = "LLM_ANALYZE_RESULTS"
+          value = tostring(var.llm_analyze_results)
         }
       ]
 
