@@ -494,14 +494,55 @@ async def execute_dynamodb_query(query: dict) -> dict:
     operation = query.get('operation', 'Query')
     table_name = query.get('TableName')
     
+    # Define valid parameters for each operation type
+    VALID_PARAMS = {
+        'Query': {
+            'TableName', 'IndexName', 'Select', 'AttributesToGet', 'Limit', 
+            'ConsistentRead', 'KeyConditions', 'QueryFilter', 'ConditionalOperator',
+            'ScanIndexForward', 'ExclusiveStartKey', 'ReturnConsumedCapacity',
+            'ProjectionExpression', 'FilterExpression', 'KeyConditionExpression',
+            'ExpressionAttributeNames', 'ExpressionAttributeValues'
+        },
+        'Scan': {
+            'TableName', 'IndexName', 'AttributesToGet', 'Limit', 'Select',
+            'ScanFilter', 'ConditionalOperator', 'ExclusiveStartKey',
+            'ReturnConsumedCapacity', 'TotalSegments', 'Segment',
+            'ProjectionExpression', 'FilterExpression', 'ExpressionAttributeNames',
+            'ExpressionAttributeValues', 'ConsistentRead'
+        },
+        'GetItem': {
+            'TableName', 'Key', 'AttributesToGet', 'ConsistentRead',
+            'ReturnConsumedCapacity', 'ProjectionExpression',
+            'ExpressionAttributeNames'
+        },
+        'BatchGetItem': {
+            'RequestItems', 'ReturnConsumedCapacity'
+        }
+    }
+    
     try:
-        if not table_name:
+        if not table_name and operation != 'BatchGetItem':
             raise ValueError("TableName is required in query")
         
         logger.info(f"Executing DynamoDB {operation} on table: {table_name}")
         
         # Build DynamoDB request parameters by copying query and removing 'operation'
-        params = {k: v for k, v in query.items() if k != 'operation'}
+        all_params = {k: v for k, v in query.items() if k != 'operation'}
+        
+        # Filter parameters based on operation type
+        valid_params_for_operation = VALID_PARAMS.get(operation, set())
+        params = {}
+        filtered_params = []
+        
+        for key, value in all_params.items():
+            if key in valid_params_for_operation:
+                params[key] = value
+            else:
+                filtered_params.append(key)
+        
+        # Log filtered parameters for debugging
+        if filtered_params:
+            logger.warning(f"Filtered out invalid parameters for {operation}: {', '.join(filtered_params)}")
         
         # Log index usage if present
         if 'IndexName' in params:
